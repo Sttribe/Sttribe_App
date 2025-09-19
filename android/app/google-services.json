@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "699272670821",
+    "project_id": "sttribe-85b3b",
+    "storage_bucket": "sttribe-85b3b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699272670821:android:71d02ad30228c05cfa208c",
+        "android_client_info": {
+          "package_name": "com.sttribe"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "699272670821-imv5encl5bg7jhp546nurraton4vmhhr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sttribe",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "699272670821-e2m6cj4n75e8dc5a3t0ifvgc52hpecpf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCg3s3aCZEbfeKmZs0M33AulXJVK0w7DOQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "699272670821-1n1j0poh7807op52pa33mka6pd9vlgdj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "699272670821-10p4ag0ssha0h5o9ea9v1b3d3l73cd10.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.test"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

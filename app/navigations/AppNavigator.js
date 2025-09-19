@@ -1,0 +1,173 @@
+import React, { useEffect, useState } from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { NavigationContainer } from "@react-navigation/native";
+import { Home, Users, Search, CreditCard, User, Wallet } from "lucide-react-native";
+
+// screens
+import AuthScreen from "../AuthScreen";
+import Login from "../login";
+import ChatScreen from "../chat";
+import CreateGroup from "../create-group";
+import EditProfile from "../edit-profile";
+import GroupDetails from "../group-details";
+import Help from "../help";
+import MovieDetails from "../movie-details";
+import Notifications from "../notifications";
+import PaymentGateway from "../payment-gateway";
+import PaymentMethods from "../payment-methods";
+import Privacy from "../privacy";
+import SubscriptionPurchase from "../subscription-purchase";
+import Transactions from "../transactions";
+
+// tab screens
+import HomeScreen from "../(tabs)/index.tsx";
+import Discover from "../(tabs)/discover.tsx";
+import Groups from "../(tabs)/groups.tsx";
+import Profile from "../(tabs)/profile.tsx";
+import Recharge from "../(tabs)/recharge.tsx";
+import WalletScreen from "../(tabs)/wallet.tsx";
+import auth from "@react-native-firebase/auth";
+import FreeOttStream from "../FreeOttStream.tsx";
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+function TabsNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: "#8B5CF6",
+        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarStyle: {
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 1,
+          borderTopColor: "#E5E7EB",
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 70,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: "Inter-Medium",
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
+      }}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen} // 👈 map your `index.tsx` here
+        options={{
+          title: "Home",
+          tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Groups"
+        component={Groups}
+        options={{
+          title: "Groups",
+          tabBarIcon: ({ size, color }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Discover"
+        component={Discover}
+        options={{
+          title: "Discover",
+          tabBarIcon: ({ size, color }) => <Search size={size} color={color} />,
+        }}
+      />
+      {/* <Tab.Screen
+        name="Recharge"
+        component={Recharge}
+        options={{
+          title: "Recharge",
+          // If you want to hide it from tab bar:
+          tabBarButton: () => null,
+          tabBarIcon: ({ size, color }) => <CreditCard size={size} color={color} />,
+        }}
+      /> */}
+      <Tab.Screen
+        name="Wallet"
+        component={WalletScreen}
+        options={{
+          title: "Wallet",
+          tabBarIcon: ({ size, color }) => <Wallet size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={Profile}
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ size, color }) => <User size={size} color={color} />,
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+export default function AppNavigator() {
+  const [user, setUser] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState("");
+
+  useEffect(() => {
+
+    const unsubscribe = auth().onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        try {
+          const idToken = await currentUser.getIdToken();
+          setToken(idToken);
+          console.log("Firebase Token:", idToken);
+        } catch (err) {
+          console.error("Error getting Firebase token", err);
+        }
+      } else {
+        setUser(null);
+        setToken(null);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  if (loading) return null; // you can add SplashScreen here
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!token ? (
+          // if not logged in
+          <Stack.Screen name="Login" component={Login} />
+        ) : (
+          <>
+            {/* main tabs */}
+            <Stack.Screen name="Tabs" component={TabsNavigator} />
+            {/* extra stack screens */}
+            <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="CreateGroup" component={CreateGroup} />
+            <Stack.Screen name="EditProfile" component={EditProfile} />
+            <Stack.Screen name="GroupDetails" component={GroupDetails} />
+            <Stack.Screen name="Help" component={Help} />
+            <Stack.Screen name="MovieDetails" component={MovieDetails} />
+            <Stack.Screen name="Notifications" component={Notifications} />
+            <Stack.Screen name="PaymentGateway" component={PaymentGateway} />
+            <Stack.Screen name="PaymentMethods" component={PaymentMethods} />
+            <Stack.Screen name="Privacy" component={Privacy} />
+            <Stack.Screen name="SubscriptionPurchase" component={SubscriptionPurchase} />
+            <Stack.Screen name="Transactions" component={Transactions} />
+            <Stack.Screen name="FreeOttStream" component={FreeOttStream} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}

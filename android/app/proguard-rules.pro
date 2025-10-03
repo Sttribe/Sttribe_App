@@ -8,3 +8,6 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+# Add these lines for push notifications
+-keep class com.dieam.reactnativepushnotification.** { *; }
+-keep class com.google.firebase.messaging.** { *; }

@@ -5,9 +5,17 @@
     "**/*.tsx",
     "app/navigations/AppNavigator.js",
     "env.d.ts"
-  ],
+, "app/OnboardingScreen.jsx"  ],
   "exclude": [
     "**/node_modules",
     "**/Pods"
-  ]
+  ],
+  "compilerOptions": {
+    "typeRoots": [
+      "/*",
+      "",
+      "./src/types",
+      "./node_modules/@types"
+    ]
+  }
 }

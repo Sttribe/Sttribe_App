@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Button, Text, View, Alert } from "react-native";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { Button, Text, View, Alert, Image, StyleSheet } from "react-native";
+import { GoogleSignin, GoogleSigninButton, statusCodes } from "@react-native-google-signin/google-signin";
 import auth from "@react-native-firebase/auth";
 import { useNavigation } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -69,15 +70,89 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <Button title="Login with Google" onPress={handleGoogleLogin} />
+        <SafeAreaView style={styles.container}>
+            {/* App Logo / Illustration */}
+            <View style={styles.header}>
+                <Image
+                    source={{
+                        uri: "https://www.sttribe.com/assets/2543_090525_Sttribe_HP-PNG-01-Bkds-OOd.png",
+                    }}
+                    style={styles.logo}
+                    resizeMode="contain"
+                />
+                <Text style={styles.title}>Welcome to Sttribe</Text>
+                <Text style={styles.subtitle}>
+                    Save money by sharing OTT subscriptions with your friends and family - simple,
+                    secure, and hassle-free.
+                </Text>
+            </View>
 
-            {userInfo && (
-                <View style={{ marginTop: 20 }}>
-                    <Text>Welcome {userInfo.displayName}</Text>
-                    <Text>Email: {userInfo.email}</Text>
-                </View>
-            )}
-        </View>
+            {/* Login options */}
+            <View style={styles.content}>
+                <GoogleSigninButton
+                    style={styles.googleButton}
+                    size={GoogleSigninButton.Size.Wide}
+                    color={GoogleSigninButton.Color.Dark}
+                    onPress={handleGoogleLogin}
+                />
+
+                <Text style={styles.footerText}>
+                    By continuing, you agree to our{" "}
+                    <Text style={styles.link}>Terms of Service</Text> and{" "}
+                    <Text style={styles.link}>Privacy Policy</Text>.
+                </Text>
+            </View>
+        </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "#FFFF",
+        justifyContent: "space-evenly",
+    },
+    header: {
+        alignItems: "center",
+        marginTop: 80,
+        paddingHorizontal: 20,
+    },
+    logo: {
+        width: 120,
+        height: 120,
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#1F2937",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    subtitle: {
+        fontSize: 14,
+        color: "#6B7280",
+        textAlign: "center",
+        lineHeight: 20,
+    },
+    content: {
+        alignItems: "center",
+        marginBottom: 60,
+        paddingHorizontal: 20,
+    },
+    googleButton: {
+        width: 230,
+        height: 50,
+        marginBottom: 24,
+    },
+    footerText: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        textAlign: "center",
+        lineHeight: 18,
+    },
+    link: {
+        color: "#6D28D9",
+        fontWeight: "500",
+    },
+});

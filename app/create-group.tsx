@@ -412,6 +412,7 @@ export default function CreateGroupScreen() {
           </View>
 
           {/* Cost Summary */}
+          {/* Cost Summary */}
           {selectedPlatform && selectedPlan && (
             <View style={styles.section}>
               <View style={styles.costSummary}>
@@ -420,35 +421,62 @@ export default function CreateGroupScreen() {
                   style={styles.costSummaryGradient}
                 >
                   <Text style={styles.costSummaryTitle}>Cost Summary</Text>
-                  <View style={styles.costRow}>
-                    <Text style={styles.costLabel}>Total Monthly Cost:</Text>
-                    <View style={styles.costValue}>
-                      <IndianRupee size={16} color="#FFFFFF" />
-                      <Text style={styles.costAmount}>
-                        {platforms.find(p => p.id === selectedPlatform)?.plans.find(p => p.id === selectedPlan)?.price}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.costRow}>
-                    <Text style={styles.costLabel}>Cost per Member:</Text>
-                    <View style={styles.costValue}>
-                      <IndianRupee size={16} color="#FFFFFF" />
-                      <Text style={styles.costAmount}>{calculateCostPerMember()}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.costRow}>
-                    <Text style={styles.costLabel}>Your Savings:</Text>
-                    <View style={styles.costValue}>
-                      <IndianRupee size={16} color="#FFFFFF" />
-                      <Text style={styles.costAmount}>
-                        {platforms.find(p => p.id === selectedPlatform)?.plans.find(p => p.id === selectedPlan)?.price - calculateCostPerMember()}
-                      </Text>
-                    </View>
-                  </View>
+
+                  {(() => {
+                    const platform = platforms.find(p => p.id === selectedPlatform);
+                    const plan = platform?.plans.find(p => p.planName === selectedPlan);
+                    if (!plan) return null;
+
+                    // Base plan price
+                    const basePrice = plan.price;
+                    // Add 9% platform fee
+                    const priceWithFee = Math.ceil(basePrice * 1.09);
+                    // Cost per member
+                    const perMember = Math.ceil(priceWithFee / parseInt(maxMembers));
+                    // Savings compared to taking full plan alone
+                    const savings = priceWithFee - perMember;
+
+                    return (
+                      <>
+                        <View style={styles.costRow}>
+                          <Text style={styles.costLabel}>Total Monthly Cost:</Text>
+                          <View style={styles.costValue}>
+                            <IndianRupee size={16} color="#FFFFFF" />
+                            <Text style={styles.costAmount}>{basePrice}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.costRow}>
+                          <Text style={styles.costLabel}>Total Monthly Cost (with 9% platform fee):</Text>
+                          <View style={styles.costValue}>
+                            <IndianRupee size={16} color="#FFFFFF" />
+                            <Text style={styles.costAmount}>{priceWithFee}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.costRow}>
+                          <Text style={styles.costLabel}>Cost per Member:</Text>
+                          <View style={styles.costValue}>
+                            <IndianRupee size={16} color="#FFFFFF" />
+                            <Text style={styles.costAmount}>{perMember}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.costRow}>
+                          <Text style={styles.costLabel}>Your Savings:</Text>
+                          <View style={styles.costValue}>
+                            <IndianRupee size={16} color="#FFFFFF" />
+                            <Text style={styles.costAmount}>{savings}</Text>
+                          </View>
+                        </View>
+                      </>
+                    );
+                  })()}
                 </LinearGradient>
               </View>
             </View>
           )}
+
 
           {/* Create Group Button */}
           <View style={styles.section}>

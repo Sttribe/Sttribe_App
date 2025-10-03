@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { Home, Users, Search, CreditCard, User, Wallet } from "lucide-react-native";
+import { OPENAI_API_KEY } from "@env";
 
 // screens
 import AuthScreen from "../AuthScreen";
@@ -29,11 +30,20 @@ import Recharge from "../(tabs)/recharge.tsx";
 import WalletScreen from "../(tabs)/wallet.tsx";
 import auth from "@react-native-firebase/auth";
 import FreeOttStream from "../FreeOttStream.tsx";
+import PrivacyPolicyScreen from "../PrivacyPolicy.tsx";
+import RefundPolicyScreen from "../RefundPolicy.tsx";
+import TermsConditionsScreen from "../TermsConditions.tsx";
+import FAQScreen from "../FAQs.tsx";
+import OnboardingScreen from "../OnboardingScreen.jsx";
+import { checkFirstLaunch, setFirstLaunchCompleted } from "./firstLaunch.js";
+import { storeApiKey } from "../openaiService.ts";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabsNavigator() {
+  const insets = useSafeAreaInsets(); // ✅ now insets is defined
   return (
     <Tab.Navigator
       screenOptions={{
@@ -44,9 +54,9 @@ function TabsNavigator() {
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#E5E7EB",
-          paddingBottom: 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8, // 👈 add safe-area padding
           paddingTop: 8,
-          height: 70,
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 15), // 👈 increase height for devices with nav bar
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -116,36 +126,66 @@ export default function AppNavigator() {
   const [user, setUser] = useState({});
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [isFirstLaunch, setIsFirstLaunch] = useState(null);
+  const API_KEY = OPENAI_API_KEY;
 
   useEffect(() => {
 
-    const unsubscribe = auth().onAuthStateChanged(async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        try {
-          const idToken = await currentUser.getIdToken();
-          setToken(idToken);
-          console.log("Firebase Token:", idToken);
-        } catch (err) {
-          console.error("Error getting Firebase token", err);
-        }
-      } else {
-        setUser(null);
-        setToken(null);
-      }
-      setLoading(false);
-    });
+    // Save OpenAI API key (if needed)
+    storeApiKey(API_KEY)
+      .then(() => console.log("API key stored successfully"))
+      .catch(err => console.error("Error storing API key", err));
 
-    return unsubscribe;
+    const initializeApp = async () => {
+      try {
+        // Check if it's the first launch
+        const isFirst = await checkFirstLaunch();
+        setIsFirstLaunch(isFirst);
+
+        // Set up auth listener
+        const unsubscribe = auth().onAuthStateChanged(async (currentUser) => {
+          if (currentUser) {
+            setUser(currentUser);
+            try {
+              const idToken = await currentUser.getIdToken();
+              setToken(idToken);
+              console.log("Firebase Token:", idToken);
+            } catch (err) {
+              console.error("Error getting Firebase token", err);
+            }
+          } else {
+            setUser(null);
+            setToken(null);
+          }
+          setLoading(false);
+        });
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        setIsFirstLaunch(true);
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
   }, []);
 
-  if (loading) return null; // you can add SplashScreen here
-
+  const handleOnboardingComplete = async () => {
+    await setFirstLaunchCompleted();
+    setIsFirstLaunch(false);
+  };
+  if (loading || isFirstLaunch === null) {
+    return null;
+  }
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!token ? (
-          // if not logged in
+        {isFirstLaunch ? (
+          <Stack.Screen name="Onboarding">
+            {(props) => <OnboardingScreen {...props} onComplete={handleOnboardingComplete} />}
+          </Stack.Screen>
+        ) : !token ? (
           <Stack.Screen name="Login" component={Login} />
         ) : (
           <>
@@ -165,6 +205,10 @@ export default function AppNavigator() {
             <Stack.Screen name="SubscriptionPurchase" component={SubscriptionPurchase} />
             <Stack.Screen name="Transactions" component={Transactions} />
             <Stack.Screen name="FreeOttStream" component={FreeOttStream} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
+            <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
+            <Stack.Screen name="FAQs" component={FAQScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -103,7 +103,7 @@ export default function GroupsScreen() {
           });
           setLoading(true);
           setMyGroups(transformed);
-          console.log("myGroups: ", myGroups);
+          console.log("myGroups count: ", myGroups);
           setLoading(false);
         } catch (error) {
           console.error("Error fetching groups:", error);
@@ -113,36 +113,9 @@ export default function GroupsScreen() {
       fetchData();
     }, []));
 
-  const joinableGroups = [
-    {
-      id: 4,
-      name: 'Sony LIV Fans',
-      platform: 'Sony LIV',
-      members: 2,
-      maxMembers: 5,
-      monthlyCost: 699,
-      personalCost: 139.8,
-      owner: 'Priya Sharma',
-      image: 'https://images.pexels.com/photos/4009402/pexels-photo-4009402.jpeg?auto=compress&cs=tinysrgb&w=400',
-      color: '#FF6B35',
-    },
-    {
-      id: 5,
-      name: 'Zee5 Premium',
-      platform: 'Zee5',
-      members: 1,
-      maxMembers: 5,
-      monthlyCost: 499,
-      personalCost: 99.8,
-      owner: 'Amit Patel',
-      image: 'https://images.pexels.com/photos/3944091/pexels-photo-3944091.jpeg?auto=compress&cs=tinysrgb&w=400',
-      color: '#8B5CF6',
-    },
-  ];
-
-  const filteredGroups = [...myGroups, ...joinableGroups].filter(group =>
-    group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    group.platform.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredGroups = [...myGroups].filter(group =>
+    (group.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (group.platform ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -179,11 +152,15 @@ export default function GroupsScreen() {
             <ActivityIndicator size="large" color="#4F46E5" />
             <Text style={styles.loadingText}>Loading groups...</Text>
           </View>
-        ) : myGroups.length > 0 ? (
+        ) : filteredGroups.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>My Groups ({myGroups.length})</Text>
-            <Text style={{ marginBottom: 16, marginTop: 8, color: '#9CA3AF' }}>Note: 1 Tribe Can contain Only One Subscription</Text>
-            {myGroups.map((group) => (
+            <Text style={styles.sectionTitle}>
+              My Groups ({filteredGroups.length})
+            </Text>
+            <Text style={{ marginBottom: 16, marginTop: 8, color: '#9CA3AF' }}>
+              Note: 1 Tribe Can contain Only One Subscription
+            </Text>
+            {filteredGroups.map((group) => (
               <TouchableOpacity
                 key={group.id}
                 style={styles.groupCard}
@@ -194,11 +171,8 @@ export default function GroupsScreen() {
                   <View style={styles.groupInfo}>
                     <View style={styles.groupTitleRow}>
                       <Text style={styles.groupName}>{group.name}</Text>
-                      {group.isOwner && (
-                        <Crown size={16} color="#F59E0B" />
-                      )}
+                      {group.isOwner && <Crown size={16} color="#F59E0B" />}
                     </View>
-                    {/* <Text style={styles.groupPlatform}>{group.platform}</Text> */}
                     <View style={styles.groupMeta}>
                       <View style={styles.groupMembers}>
                         <Users size={14} color="#6B7280" />
@@ -220,33 +194,27 @@ export default function GroupsScreen() {
                   <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() =>
-                      router.navigate("Chat",
-                        {
-                          groupId: group.id,
-                          groupName: group.name,
-                          memberCount: group.members,
-                        })
+                      router.navigate("Chat", {
+                        groupId: group.id,
+                        groupName: group.name,
+                        memberCount: group.members,
+                      })
                     }
                   >
                     <MessageCircle size={18} color="#8B5CF6" />
                   </TouchableOpacity>
-                  {/* <TouchableOpacity style={styles.actionButton}>
-                  <Settings size={18} color="#6B7280" />
-                </TouchableOpacity> */}
                 </View>
 
                 <View style={styles.costInfo}>
                   <View style={styles.costRow}>
                     <Text style={styles.costLabel}> </Text>
                     <View style={styles.costValue}>
-                      {/* <IndianRupee size={14} color="#059669" /> */}
                       <Text style={styles.costAmount}>Members</Text>
                     </View>
                   </View>
                   <View style={styles.costRow}>
                     <Text style={styles.costLabel}>Created On</Text>
                     <View style={styles.costValue}>
-                      {/* <IndianRupee size={14} color="#6B7280" /> */}
                       <Text style={styles.totalAmount}>{group.createdAt}</Text>
                     </View>
                   </View>
@@ -254,23 +222,26 @@ export default function GroupsScreen() {
 
                 <View style={styles.membersRow}>
                   <View style={styles.memberAvatars}>
-                    {group.avatars.map((avatar, index) => (
+                    {(group.avatars ?? []).map((avatar, index) => (
                       <Image
                         key={index}
                         source={{ uri: avatar }}
-                        style={[styles.memberAvatar, { marginLeft: index > 0 ? -8 : 0 }]}
+                        style={[
+                          styles.memberAvatar,
+                          { marginLeft: index > 0 ? -8 : 0 },
+                        ]}
                       />
                     ))}
-                    {group.members > group.avatars.length && (
+                    {group.members > ((group.avatars ?? []).length) && (
                       <View style={[styles.memberAvatar, styles.extraMember]}>
                         <Text style={styles.extraMemberText}>
-                          +{group.members - group.avatars.length}
+                          +{group.members - (group.avatars?.length ?? 0)}
                         </Text>
                       </View>
                     )}
                   </View>
                   <LinearGradient
-                    colors={[group.color + '20', group.color + '10']}
+                    colors={[group.color + "20", group.color + "10"]}
                     style={styles.progressBar}
                   >
                     <View
@@ -279,7 +250,7 @@ export default function GroupsScreen() {
                         {
                           width: `${(group.members / group.maxMembers) * 100}%`,
                           backgroundColor: group.color,
-                        }
+                        },
                       ]}
                     />
                   </LinearGradient>
@@ -289,15 +260,18 @@ export default function GroupsScreen() {
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>You don’t have any groups yet.</Text>
+            <Text style={styles.emptyText}>
+              You don't have any tribes yet. Create your first tribe and start saving today.
+            </Text>
             <TouchableOpacity
               style={styles.createGroupButton}
-              onPress={() => router.push('/create-group')}
+              onPress={() => router.navigate("CreateGroup")}
             >
               <Text style={styles.createGroupButtonText}>+ Create Tribe</Text>
             </TouchableOpacity>
           </View>
         )}
+
         {/* Joinable Groups */}
         <View style={[styles.joinInfo, { flexDirection: 'column' }]}>
           <LinearGradient

@@ -8,7 +8,7 @@ import {
     TouchableOpacity,
     Linking,
 } from "react-native";
-import { ArrowLeft, Mail, Phone, Globe, IndianRupee } from "lucide-react-native";
+import { ArrowLeft, Mail, Phone, Globe, IndianRupee, HelpCircle, Navigation } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 
 export default function HelpSupportScreen() {
@@ -90,33 +90,17 @@ export default function HelpSupportScreen() {
                         </View>
                     </TouchableOpacity>
                 </View>
-
-                {/* Quick Links */}
                 <View style={styles.menuSection}>
-                    <Text style={styles.sectionTitle}>Quick Links</Text>
+                    <Text style={styles.sectionTitle}>FAQs</Text>
 
-                    <TouchableOpacity style={styles.menuItem} onPress={openWebsite}>
+                    <TouchableOpacity style={styles.menuItem} onPress={() => {
+                        router.navigate('FAQs')
+                    }}>
                         <View style={styles.menuItemLeft}>
                             <View style={styles.menuItemIcon}>
-                                <Text>📄</Text>
+                                <HelpCircle color="#111827" size={20} />
                             </View>
-                            <Text style={styles.menuItemText}>Privacy Policy</Text>
-                        </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuItem} onPress={openWebsite}>
-                        <View style={styles.menuItemLeft}>
-                            <View style={styles.menuItemIcon}>
-                                <IndianRupee color="#111827" size={20} />
-                            </View>
-                            <Text style={styles.menuItemText}>Refund Policy</Text>
-                        </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuItem} onPress={openWebsite}>
-                        <View style={styles.menuItemLeft}>
-                            <View style={styles.menuItemIcon}>
-                                <Text>📄</Text>
-                            </View>
-                            <Text style={styles.menuItemText}>Terms & Conditions</Text>
+                            <Text style={styles.menuItemText}>FAQs</Text>
                         </View>
                     </TouchableOpacity>
                 </View>

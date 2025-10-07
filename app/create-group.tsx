@@ -194,6 +194,7 @@ export default function CreateGroupScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Family Netflix, Friends Squad"
+                placeholderTextColor="#888"
                 value={groupName}
                 onChangeText={setGroupName}
               />

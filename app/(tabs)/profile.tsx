@@ -124,6 +124,7 @@ export default function ProfileScreen() {
     Alert.alert(
       "Logout",
       "Are you sure you want to logout?",
+
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -131,25 +132,29 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // 1. Firebase sign out
+              // Sign out from Firebase
               await auth().signOut();
 
-              // 2. Google sign out (clear cached session)
+              // Clear Google Sign-In session
               await GoogleSignin.signOut();
 
-              // (Optional) Revoke access so user is forced to pick account
+              // Revoke access to force account chooser on next login
               await GoogleSignin.revokeAccess();
 
-              // 3. Navigate to login screen
+              // Navigate back to login screen
               router.navigate("Login");
+
+              console.log("✅ User fully logged out and access revoked");
             } catch (err: any) {
-              Alert.alert("Error", err.message);
+              console.error("❌ Logout error:", err);
+              Alert.alert("Error", err.message || "Something went wrong during logout.");
             }
           },
         },
       ]
     );
   };
+
 
   return (
     <SafeAreaView style={styles.container}>

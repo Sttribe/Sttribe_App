@@ -117,6 +117,7 @@ export default function GroupDetailsScreen() {
       const amountInPaise = Math.round(perMemberCost * 100);
       // 1️⃣ Create Razorpay order via backend
       console.log("Creating Razorpay order via backend...", perMemberCost);
+      console.log("Calling create-order API...");
       const orderResponse = await axios.post(
         'https://api-s2onatgxwq-uc.a.run.app/api/razorpay/create-order',
         {
@@ -126,13 +127,13 @@ export default function GroupDetailsScreen() {
         },
         { headers: { Authorization: `Bearer ${idToken}` } }
       );
-
+      console.log("Order API success:", orderResponse.data);
       const orderData = orderResponse.data;
       console.log("Razorpay order created:", orderData);
 
       // 2️⃣ Configure Razorpay checkout
       const options = {
-        key: "rzp_test_fra3RAroBWpMqJ",
+        key: "rzp_live_RPrSOy1pADkWRe",
         amount: orderData.amount,
         currency: orderData.currency,
         name: "Sttribe - Ebirtts Technologies Pvt Ltd",
@@ -222,38 +223,56 @@ export default function GroupDetailsScreen() {
     memberId: string,
     tribeId: string,
     subscriptionId: string,
-    amount: number, // this is in INR
+    amount: number,
     memberName?: string,
     memberEmail?: string
   ) => {
+    console.log("🚀 handleMemberPayment called with:", {
+      memberId,
+      tribeId,
+      subscriptionId,
+      amount,
+      memberName,
+      memberEmail,
+    });
+
     try {
       const currentUser = auth().currentUser;
       if (!currentUser) {
+        console.error("❌ No current user found.");
         Alert.alert("Error", "User not logged in");
         return;
       }
 
-      // 🔑 Get Firebase ID Token
       const idToken = await currentUser.getIdToken();
-      const safeAmount = Number(amount);
+      console.log("✅ Got Firebase ID token");
 
+      // Validate amount
+      const safeAmount = Number(amount);
       if (isNaN(safeAmount)) {
         console.error("❌ Invalid amount received:", amount);
         Alert.alert("Payment Error", "Invalid amount. Please try again.");
         return;
       }
 
+      // Convert to 2 decimal places
       const amountRuppe = parseFloat(safeAmount.toFixed(2));
-      console.log("amountRuppe:", amountRuppe);
+      console.log("💰 Amount details:");
+      console.log("   - Original amount:", amount);
+      console.log("   - Amount in INR:", amountRuppe);
+      console.log("   - Amount in paise:", amountRuppe * 100);
 
       // 1️⃣ Create member payment order via backend
+      console.log("📡 Creating order on backend...");
+      console.log("   - Sending to backend (INR):", amountRuppe);
+
       const orderResponse = await axios.post(
         "https://api-s2onatgxwq-uc.a.run.app/api/member-payment",
         {
           subscriptionId,
           tribeId,
           memberId,
-          amount: amountRuppe / 100,
+          amount: amountRuppe, // Sending INR to backend
         },
         {
           headers: {
@@ -262,17 +281,24 @@ export default function GroupDetailsScreen() {
         }
       );
 
+      console.log("✅ Order API response:", orderResponse.data);
       const orderData = orderResponse.data;
-      console.log("orderData: ", orderData);
+
+      // 🔍 CRITICAL DEBUG LOGS
+      console.log("🔍 DEBUG - Amount conversion check:");
+      console.log("   - Received from backend:", orderData.amount);
+      console.log("   - This should be paise (1054 for 10.54 INR)");
+      console.log("   - Converted to INR:", orderData.amount / 100);
 
       if (!orderData?.orderId) {
+        console.error("❌ No orderId in orderData:", orderData);
         throw new Error("Failed to create payment order");
       }
 
       // 2️⃣ Configure Razorpay checkout
       const options = {
-        key: "rzp_test_fra3RAroBWpMqJ", // replace in prod
-        amount: orderData.amount,
+        key: "rzp_live_RPrSOy1pADkWRe",
+        amount: orderData.amount, // This should be in paise
         currency: orderData.currency,
         name: "Sttribe - Ebirtts Technologies Pvt Ltd",
         description: `Member payment for subscription`,
@@ -285,11 +311,20 @@ export default function GroupDetailsScreen() {
         theme: { color: "#6366f1" },
       };
 
+      console.log("🚀 Razorpay Checkout details:");
+      console.log("   - Amount in options (paise):", options.amount);
+      console.log("   - Amount in options (INR):", options.amount / 100);
+      console.log("   - Order ID:", options.order_id);
+
       RazorpayCheckout.open(options)
         .then(async (response) => {
+          console.log("✅ Razorpay success response:", response);
           try {
             // 4️⃣ Verify payment via backend
-            await axios.post(
+            console.log("📡 Verifying payment with backend...");
+            console.log("   - Sending amount for verification:", orderData.amount, "(paise)");
+
+            const verifyResponse = await axios.post(
               "https://api-s2onatgxwq-uc.a.run.app/api/razorpay/verify-payment",
               {
                 razorpay_order_id: orderData.orderId,
@@ -298,7 +333,7 @@ export default function GroupDetailsScreen() {
                 paymentIds: [],
                 subscriptionId,
                 userId: memberId,
-                amount: orderData.amount / 100, // keep in paise
+                amount: orderData.amount / 100, // Sending paise for verification
               },
               {
                 headers: {
@@ -306,6 +341,8 @@ export default function GroupDetailsScreen() {
                 },
               }
             );
+
+            console.log("✅ Verification response:", verifyResponse.data);
 
             Alert.alert(
               "Payment Successful!",
@@ -320,22 +357,22 @@ export default function GroupDetailsScreen() {
               ]
             );
           } catch (verifyError: any) {
-            console.error("Payment verification error:", verifyError);
+            console.error("❌ Payment verification error:", verifyError.response?.data || verifyError);
             Alert.alert(
               "Payment verification failed",
-              verifyError.message || "Please contact support"
+              verifyError.response?.data?.message || verifyError.message || "Please contact support"
             );
           }
         })
         .catch((error) => {
-          console.error("Razorpay Checkout Error:", error);
+          console.error("❌ Razorpay Checkout Error:", error);
           Alert.alert("Payment Failed", "Payment was cancelled or failed.");
         });
     } catch (error: any) {
-      console.error("Payment Error:", error);
+      console.error("❌ Payment Error (outer catch):", error.response?.data || error.message);
       Alert.alert(
         "Payment Error",
-        error.message || "Failed to initiate payment. Please try again."
+        error.response?.data?.message || error.message || "Failed to initiate payment. Please try again."
       );
     }
   };
@@ -727,6 +764,13 @@ export default function GroupDetailsScreen() {
   const handleAddOttPlatform = () => {
     setAddPlatformModalVisible(true);
   }
+  const amountRupee = subscription?.payments?.[0]?.amount ?? 0;
+
+  console.log("amountRupee : ", amountRupee);
+
+  const displayAmount = Number(amountRupee).toFixed(2);
+  console.log("amountRupee (formatted):", displayAmount);
+
   const renderOverview = () => (
     <View style={styles.tabContent}>
       {/* Group Info Card */}
@@ -784,7 +828,7 @@ export default function GroupDetailsScreen() {
         <View style={styles.statCard}>
           <IndianRupee size={20} color="#10B981" />
           <Text style={styles.statValue}>
-            ₹{subscription?.payments?.[0]?.amount ?? "0"}
+            ₹{displayAmount}
           </Text>
           <Text style={styles.statLabel}>Your Share</Text>
         </View>
@@ -1136,7 +1180,7 @@ export default function GroupDetailsScreen() {
           })
         ) : (
           <Text style={{ fontSize: 14, color: "#9CA3AF", marginVertical: 20, textAlign: 'center' }}>
-           No subscriptions found. Add one to begin sharing.
+            No subscriptions found. Add one to begin sharing.
           </Text>
         )}
 

@@ -173,7 +173,18 @@ export default function ProfileScreen() {
             colors={['#8B5CF6', '#A78BFA']}
             style={styles.profileGradient}
           >
-            <Image source={{ uri: userProfile.profileImageUrl }} style={styles.profileImage} />
+            {userProfile.profileImageUrl ? (
+              <Image
+                source={{ uri: userProfile.profileImageUrl }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.profilePlaceholder}>
+                <Text style={styles.profileInitials}>
+                  {`${userProfile.firstName?.[0] ?? ''}${userProfile.lastName?.[0] ?? ''}`.toUpperCase()}
+                </Text>
+              </View>
+            )}
             <Text style={styles.profileName}>{userProfile.firstName} {userProfile.lastName}</Text>
             <View style={styles.profileInfo}>
               <View style={styles.profileInfoItem}>
@@ -302,6 +313,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 3,
     borderColor: '#FFFFFF',
+  },
+  profilePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 6,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+
+  profileInitials: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   profileName: {
     fontSize: 24,

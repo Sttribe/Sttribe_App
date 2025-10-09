@@ -32,6 +32,7 @@ export default function GroupDetailsScreen() {
   const [groupData, setGroupData] = useState({});
   const [tribe, setTribe] = useState({});
   const [membersData, setMembersData] = useState([]);
+  console.log("membersData payments: ", membersData);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
@@ -188,7 +189,7 @@ export default function GroupDetailsScreen() {
               await processPurchase(paymentResult);
 
               console.log("Purchase processed successfully");
-              Alert.alert('Success', 'Payment completed successfully!',
+              Alert.alert('Success', 'Your payment has been recorded! Once all group members pay their share of the subscription amount, you’ll receive the total subscription value directly to your linked UPI ID \n \n ⏳ We’ll notify you once the full amount is settled',
                 [
                   {
                     text: "OK",
@@ -1482,21 +1483,24 @@ export default function GroupDetailsScreen() {
       .filter(bill => bill.status === 'paid') // only paid bills
       .reduce((acc, bill) => acc + parseFloat(bill.amount || "0"), 0);
 
+    console.log("totalPaid :", totalPaid)
+
     // Format as currency
     const availableBalance = `₹${totalPaid.toFixed(2)}`;
 
-    const getPaymentStatus = (memberId) => {
-      const payment = subscription?.payments?.find((p) => p.userId === memberId);
+    // console.log("availableBalance : ", availableBalance)
+
+    const getPaymentStatus = (userId) => {
+      const payment = subscription?.payments?.find((p) => p.userId === userId);
       return payment?.status === "paid" ? "paid" : "pending";
     };
 
     const show = () => {
-      // assume groupMembers is an array of all group members with their ids
       const allPaid =
         membersData.length > 0 &&
-        membersData.every((member) => getPaymentStatus(member.id) === "paid");
+        membersData.every((member) => getPaymentStatus(member.userId) === "paid");
 
-      console.log("allPaid: ", allPaid);
+      console.log("allPaid status: ", allPaid);
 
       if (allPaid) {
         setShowForm(!showForm);

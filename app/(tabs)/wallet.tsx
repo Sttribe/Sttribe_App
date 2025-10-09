@@ -22,6 +22,7 @@ const WalletScreen = () => {
     const [loading, setLoading] = useState(false);
     const toggleBalance = () => setShowBalance(!showBalance);
     const [userStats, setUserStats] = useState([]);
+    const [tribeData, setTribeData] = useState([]);
     useFocusEffect(
         useCallback(() => {
             const fetchData = async () => {
@@ -40,6 +41,21 @@ const WalletScreen = () => {
                         }),
                     ])
                     setUserStats(statsRes.data);
+
+                    // const response = await axios.get(
+                    //     "https://api-s2onatgxwq-uc.a.run.app/api/subscriptions",
+                    //     { headers: { Authorization: `Bearer ${idToken}` } }
+                    // );
+
+                    // // Extract tribe and payments only
+                    // const filteredData = response.data.map(item => ({
+                    //     tribe: item.tribe,
+                    //     payments: item.payments,
+                    // }));
+
+                    // setTribeData(filteredData);
+
+                    // console.log("Filtered tribeData:", filteredData);
                 } catch (error) {
                     console.error("Error fetching ProfileScreen data:", error);
                 }
@@ -100,21 +116,24 @@ const WalletScreen = () => {
 
             {/* Wallet Balance */}
             <View style={styles.walletCard}>
-                <View style={styles.rowBetween}>
-                    <Text style={styles.label}>Your Yearly Savings with Sttribe</Text>
-                    {/* <TouchableOpacity onPress={toggleBalance}>
+                {/* <View style={styles.rowBetween}> */}
+                {/* <Text style={styles.label}>Your Yearly Savings with Sttribe</Text> */}
+                {/* <TouchableOpacity onPress={toggleBalance}>
                         <Ionicons
                             name={showBalance ? 'eye' : 'eye-off'}
                             size={24}
                             color="black"
                         />
                     </TouchableOpacity> */}
-                    <Text style={styles.balance}>₹{(userStats?.monthlySavings ?? 0) * 12}</Text>
-                </View>
+                {/* <Text style={styles.balance}>₹{(userStats?.monthlySavings ?? 0) * 12}</Text> */}
+                {/* </View> */}
                 <Text style={{ textAlign: 'center', color: 'rgb(21 128 61)' }}>Save up to 60% by sharing subscriptions</Text>
 
                 <View style={styles.rowBetween}>
-                    <Text style={[styles.label, {}]}>Total Monthly Spend</Text>
+                    <View>
+                        <Text style={[styles.label, {}]}>Total Monthly Spend</Text>
+                        <Text style={{ fontSize: 10, color:'#6B7280' }}>   *Amount shown excludes the platform fee.</Text>
+                    </View>
                     {/* <TouchableOpacity onPress={toggleBalance}>
                         <Ionicons
                             name={showBalance ? 'eye' : 'eye-off'}
@@ -238,9 +257,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 12,
         padding: 20,
+        paddingVertical: 40,
         elevation: 2,
         marginBottom: 20,
-        gap: 10
+        gap: 20
     },
     rowBetween: {
         flexDirection: 'row',
@@ -248,7 +268,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     label: {
-        fontSize: 16,
+        fontSize: 22,
         fontWeight: '500',
     },
     balance: {

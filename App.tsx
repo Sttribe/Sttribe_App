@@ -90,7 +90,7 @@ function App() {
   };
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider >
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       <AppNavigator />
     </SafeAreaProvider>

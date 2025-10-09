@@ -43,7 +43,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabsNavigator() {
-  const insets = useSafeAreaInsets(); // ✅ now insets is defined
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -54,9 +54,9 @@ function TabsNavigator() {
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#E5E7EB",
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 8, // 👈 add safe-area padding
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
-          height: 60 + (insets.bottom > 0 ? insets.bottom : 15), // 👈 increase height for devices with nav bar
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 15),
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -70,7 +70,7 @@ function TabsNavigator() {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen} // 👈 map your `index.tsx` here
+        component={HomeScreen}
         options={{
           title: "Home",
           tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
@@ -92,16 +92,6 @@ function TabsNavigator() {
           tabBarIcon: ({ size, color }) => <Search size={size} color={color} />,
         }}
       />
-      {/* <Tab.Screen
-        name="Recharge"
-        component={Recharge}
-        options={{
-          title: "Recharge",
-          // If you want to hide it from tab bar:
-          tabBarButton: () => null,
-          tabBarIcon: ({ size, color }) => <CreditCard size={size} color={color} />,
-        }}
-      /> */}
       <Tab.Screen
         name="Wallet"
         component={WalletScreen}
@@ -122,95 +112,139 @@ function TabsNavigator() {
   );
 }
 
-export default function AppNavigator() {
-  const [user, setUser] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState("");
-  const [isFirstLaunch, setIsFirstLaunch] = useState(null);
-  const API_KEY = OPENAI_API_KEY;
+// Add this helper function to properly handle auth state
+const useAuthState = () => {
+  const [authState, setAuthState] = useState({
+    user: null,
+    token: null,
+    loading: true,
+    isFirstLaunch: null
+  });
 
   useEffect(() => {
-
-    // Save OpenAI API key (if needed)
-    storeApiKey(API_KEY)
-      .then(() => console.log("API key stored successfully"))
-      .catch(err => console.error("Error storing API key", err));
-
-    const initializeApp = async () => {
+    const initializeAuth = async () => {
       try {
-        // Check if it's the first launch
+        // Check first launch
         const isFirst = await checkFirstLaunch();
-        setIsFirstLaunch(isFirst);
 
         // Set up auth listener
         const unsubscribe = auth().onAuthStateChanged(async (currentUser) => {
           if (currentUser) {
-            setUser(currentUser);
             try {
               const idToken = await currentUser.getIdToken();
-              setToken(idToken);
               console.log("Firebase Token:", idToken);
+              setAuthState({
+                user: currentUser,
+                token: idToken,
+                loading: false,
+                isFirstLaunch: isFirst
+              });
             } catch (err) {
               console.error("Error getting Firebase token", err);
+              setAuthState(prev => ({
+                ...prev,
+                loading: false,
+                isFirstLaunch: isFirst
+              }));
             }
           } else {
-            setUser(null);
-            setToken(null);
+            setAuthState({
+              user: null,
+              token: null,
+              loading: false,
+              isFirstLaunch: isFirst
+            });
           }
-          setLoading(false);
         });
 
         return unsubscribe;
       } catch (error) {
-        console.error('Error initializing app:', error);
-        setIsFirstLaunch(true);
-        setLoading(false);
+        console.error('Error initializing auth:', error);
+        setAuthState({
+          user: null,
+          token: null,
+          loading: false,
+          isFirstLaunch: true
+        });
       }
     };
 
-    initializeApp();
+    initializeAuth();
   }, []);
+
+  return authState;
+};
+
+export default function AppNavigator() {
+  const { user, token, loading, isFirstLaunch } = useAuthState();
+  const API_KEY = OPENAI_API_KEY;
+
+  useEffect(() => {
+    // Save OpenAI API key
+    if (API_KEY) {
+      storeApiKey(API_KEY)
+        .then(() => console.log("API key stored successfully"))
+        .catch(err => console.error("Error storing API key", err));
+    }
+  }, [API_KEY]);
 
   const handleOnboardingComplete = async () => {
     await setFirstLaunchCompleted();
-    setIsFirstLaunch(false);
   };
+
+  // Show nothing while loading
   if (loading || isFirstLaunch === null) {
     return null;
   }
+
+  // Determine the initial route based on the complete auth state
+  let initialRoute = "Login";
+
+  if (isFirstLaunch) {
+    initialRoute = "Onboarding";
+  } else if (user && token) {
+    initialRoute = "Tabs";
+  }
+
+  console.log("Auth State:", {
+    hasUser: !!user,
+    hasToken: !!token,
+    isFirstLaunch,
+    initialRoute
+  });
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isFirstLaunch ? (
-          <Stack.Screen name="Onboarding">
-            {(props) => <OnboardingScreen {...props} onComplete={handleOnboardingComplete} />}
-          </Stack.Screen>
-        ) : !token ? (
-          <Stack.Screen name="Login" component={Login} />
-        ) : (
-          <>
-            {/* main tabs */}
-            <Stack.Screen name="Tabs" component={TabsNavigator} />
-            {/* extra stack screens */}
-            <Stack.Screen name="Chat" component={ChatScreen} />
-            <Stack.Screen name="CreateGroup" component={CreateGroup} />
-            <Stack.Screen name="EditProfile" component={EditProfile} />
-            <Stack.Screen name="GroupDetails" component={GroupDetails} />
-            <Stack.Screen name="Help" component={Help} />
-            <Stack.Screen name="MovieDetails" component={MovieDetails} />
-            <Stack.Screen name="Notifications" component={Notifications} />
-            <Stack.Screen name="PaymentGateway" component={PaymentGateway} />
-            <Stack.Screen name="PaymentMethods" component={PaymentMethods} />
-            <Stack.Screen name="Privacy" component={Privacy} />
-            <Stack.Screen name="SubscriptionPurchase" component={SubscriptionPurchase} />
-            <Stack.Screen name="Transactions" component={Transactions} />
-            <Stack.Screen name="FreeOttStream" component={FreeOttStream} />
-            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-            <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
-            <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
-            <Stack.Screen name="FAQs" component={FAQScreen} />
-          </>
-        )}
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={initialRoute}
+      >
+        <Stack.Screen name="Onboarding">
+          {(props) => (
+            <OnboardingScreen {...props} onComplete={handleOnboardingComplete} />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Login" component={Login} />
+        {/* main tabs */}
+        <Stack.Screen name="Tabs" component={TabsNavigator} />
+        {/* extra stack screens */}
+        <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="CreateGroup" component={CreateGroup} />
+        <Stack.Screen name="EditProfile" component={EditProfile} />
+        <Stack.Screen name="GroupDetails" component={GroupDetails} />
+        <Stack.Screen name="Help" component={Help} />
+        <Stack.Screen name="MovieDetails" component={MovieDetails} />
+        <Stack.Screen name="Notifications" component={Notifications} />
+        <Stack.Screen name="PaymentGateway" component={PaymentGateway} />
+        <Stack.Screen name="PaymentMethods" component={PaymentMethods} />
+        <Stack.Screen name="Privacy" component={Privacy} />
+        <Stack.Screen name="SubscriptionPurchase" component={SubscriptionPurchase} />
+        <Stack.Screen name="Transactions" component={Transactions} />
+        <Stack.Screen name="FreeOttStream" component={FreeOttStream} />
+        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+        <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
+        <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
+        <Stack.Screen name="FAQs" component={FAQScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

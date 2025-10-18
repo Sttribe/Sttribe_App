@@ -1,94 +1,152 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
+import axios from 'axios';
+import auth from '@react-native-firebase/auth';
 
 const WalletScreen = () => {
     const [showBalance, setShowBalance] = useState(true);
+    const [noOfSubs, setNoOfSubs] = useState([]);
     const router = useNavigation();
-
+    const [loading, setLoading] = useState(false);
     const toggleBalance = () => setShowBalance(!showBalance);
+    const [userStats, setUserStats] = useState([]);
+    const [tribeData, setTribeData] = useState([]);
+    useFocusEffect(
+        useCallback(() => {
+            const fetchData = async () => {
+                try {
+                    const currentUser = auth().currentUser;
+                    if (!currentUser) {
+                        console.error("No user is logged in");
+                        return;
+                    }
 
-    const transactions = [
-        {
-            id: '1',
-            type: 'Credit',
-            label: 'Payment received from Netflix Family group',
-            source: 'Netflix Family',
-            amount: 162,
-            fee: 14.58,
-            date: '2024-01-15 2:30 PM',
-        },
-        {
-            id: '2',
-            type: 'Debit',
-            label: 'Withdrawn to bank account',
-            amount: 500,
-            fee: 5.0,
-            date: '2024-01-14 10:15 AM',
-        },
-        {
-            id: '3',
-            type: 'Credit',
-            label: 'Payment received from Entertainment Bundle',
-            source: 'Entertainment Bundle',
-            amount: 458,
-            fee: 41.22,
-            date: '2024-01-14 3:45 PM',
-        },
-    ];
+                    const idToken = await currentUser.getIdToken();
 
-    const pendingPayments = [
-        {
-            id: '1',
-            title: 'Entertainment Bundle',
-            members: ['Raj Patel', 'Vikram Singh', 'Kiran Kumar'],
-            due: '2024-01-20',
-            amount: 458,
-        },
-        {
-            id: '2',
-            title: 'Sports Bundle',
-            members: ['Amit Kumar'],
-            due: '2024-01-22',
-            amount: 333,
-        },
-    ];
+                    const [statsRes] = await Promise.all([
+                        axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/dashboard/stats`, {
+                            headers: { Authorization: `Bearer ${idToken}` }
+                        }),
+                    ])
+                    setUserStats(statsRes.data);
 
+                    // const response = await axios.get(
+                    //     "https://api-s2onatgxwq-uc.a.run.app/api/subscriptions",
+                    //     { headers: { Authorization: `Bearer ${idToken}` } }
+                    // );
+
+                    // // Extract tribe and payments only
+                    // const filteredData = response.data.map(item => ({
+                    //     tribe: item.tribe,
+                    //     payments: item.payments,
+                    // }));
+
+                    // setTribeData(filteredData);
+
+                    // console.log("Filtered tribeData:", filteredData);
+                } catch (error) {
+                    console.error("Error fetching ProfileScreen data:", error);
+                }
+            };
+            fetchData();
+        }, []));
+
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true); // start loading
+                const currentUser = auth().currentUser;
+                if (!currentUser) {
+                    console.log("User not logged in");
+                    Alert.alert('Error', 'User not logged in');
+                    setLoading(false);
+                    return;
+                }
+
+                const idToken = await currentUser.getIdToken();
+                const { data } = await axios.get(
+                    "https://api-s2onatgxwq-uc.a.run.app/api/subscriptions",
+                    { headers: { Authorization: `Bearer ${idToken}` } }
+                );
+
+
+                const currentUserId = currentUser.uid;
+
+                // Flatten payments from all subscriptions for this user
+                const allUserPayments = data
+                    .flatMap(sub => sub.payments || [])
+                    .filter(payment => payment.userId === currentUserId);
+
+                setNoOfSubs(allUserPayments);
+                console.log("data: ", allUserPayments);
+                setLoading(false); // stop loading
+
+            } catch (error) {
+                console.error("Error fetching subscriptions:", error);
+                setLoading(false); // stop loading
+            }
+        };
+
+        fetchData();
+    }, [])
+
+    const sortedTransactions = noOfSubs.sort((a, b) => {
+        const dateA = a.createdAt?._seconds || 0;
+        const dateB = b.createdAt?._seconds || 0;
+        return dateB - dateA; // ascending
+    });
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity style={styles.headerButton} onPress={() => router.goBack()}>
-                    <ArrowLeft size={24} color="black" />
-                </TouchableOpacity>
                 <Text style={styles.heading}>Wallet</Text>
             </View>
 
             {/* Wallet Balance */}
             <View style={styles.walletCard}>
-                <View style={styles.rowBetween}>
-                    <Text style={styles.label}>Wallet Balance</Text>
-                    <TouchableOpacity onPress={toggleBalance}>
+                {/* <View style={styles.rowBetween}> */}
+                {/* <Text style={styles.label}>Your Yearly Savings with Sttribe</Text> */}
+                {/* <TouchableOpacity onPress={toggleBalance}>
                         <Ionicons
                             name={showBalance ? 'eye' : 'eye-off'}
                             size={24}
                             color="black"
                         />
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
+                {/* <Text style={styles.balance}>₹{(userStats?.monthlySavings ?? 0) * 12}</Text> */}
+                {/* </View> */}
+                <Text style={{ textAlign: 'center', color: 'rgb(21 128 61)' }}>Save up to 60% by sharing subscriptions</Text>
+
+                <View style={styles.rowBetween}>
+                    <View>
+                        <Text style={[styles.label, {}]}>Total Monthly Spend</Text>
+                        <Text style={{ fontSize: 10, color:'#6B7280' }}>   *Amount shown excludes the platform fee.</Text>
+                    </View>
+                    {/* <TouchableOpacity onPress={toggleBalance}>
+                        <Ionicons
+                            name={showBalance ? 'eye' : 'eye-off'}
+                            size={24}
+                            color="black"
+                        />
+                    </TouchableOpacity> */}
+                    <Text style={styles.balance}>₹{userStats?.monthlySpend}</Text>
                 </View>
-                <Text style={styles.balance}>{showBalance ? '₹23.00' : '••••••'}</Text>
             </View>
 
             {/* Deposit / Withdraw Buttons */}
-            <View style={styles.actionRow}>
+            {/* <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.actionButton}>
                     <MaterialCommunityIcons
                         name="arrow-up-bold-circle"
@@ -97,42 +155,52 @@ const WalletScreen = () => {
                     />
                     <Text style={styles.actionText}>Withdraw</Text>
                 </TouchableOpacity>
-            </View>
+            </View> */}
 
-            {/* Recent Transactions */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Recent Transactions</Text>
-                {transactions.map((item) => (
-                    <View key={item.id} style={styles.transactionCard}>
-                        <View style={styles.rowBetween}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.transactionLabel} numberOfLines={2}>
-                                    {item.label}
-                                </Text>
-                                {item.source && (
-                                    <View style={styles.tag}>
-                                        <Text style={styles.tagText}>{item.source}</Text>
-                                    </View>
-                                )}
-                                <Text style={styles.transactionDate}>{item.date}</Text>
-                                <Text style={styles.fee}>Fee: ₹{item.fee.toFixed(2)}</Text>
-                            </View>
-                            <Text
-                                style={[
-                                    styles.transactionAmount,
-                                    item.type === 'Credit' ? styles.credit : styles.debit,
-                                ]}
-                            >
-                                {item.type === 'Credit' ? '+' : '-'}₹{item.amount.toFixed(2)}
-                            </Text>
-                        </View>
-                    </View>
-                ))}
 
-                {/* View All Button */}
-                <TouchableOpacity onPress={() => { router.navigate('Transactions') }} style={styles.viewAllButton}>
-                    <Text style={styles.viewAllText}>View All Transactions</Text>
-                </TouchableOpacity>
+                {loading ? (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 }}>
+                        <ActivityIndicator size="large" color="#2563EB" />
+                        <Text style={{ marginTop: 10 }}>Loading transactions...</Text>
+                    </View>
+                ) : noOfSubs.length === 0 ? (
+                    <Text style={{ textAlign: 'center', marginVertical: 16 }}>No payments yet. Once you start sharing, your transactions will appear here</Text>
+                ) : (
+                    sortedTransactions.slice(0, 5).map((item) => (
+                        <View key={item.id} style={styles.transactionCard}>
+                            <View style={styles.rowBetween}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.transactionLabel} numberOfLines={2}>
+                                        Payment for Subscription
+                                    </Text>
+                                    <Text style={styles.transactionDate}>
+                                        {item.createdAt?._seconds
+                                            ? new Date(item.createdAt._seconds * 1000).toLocaleString()
+                                            : 'N/A'}
+                                    </Text>
+                                    <Text style={styles.fee}>
+                                        Status: {item.status
+                                            ? item.status.charAt(0).toUpperCase() + item.status.slice(1)
+                                            : 'N/A'}
+                                    </Text>
+                                </View>
+                                <Text style={[styles.transactionAmount, styles.debit]}>
+                                    {'\u20B9'}{parseFloat(item.amount).toFixed(2)}
+                                </Text>
+                            </View>
+                        </View>
+                    ))
+                )}
+                {noOfSubs.length > 5 && (
+                    <TouchableOpacity
+                        onPress={() => router.navigate('Transactions')}
+                        style={styles.viewAllButton}
+                    >
+                        <Text style={styles.viewAllText}>View All Transactions</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Pending Payments */}
@@ -175,7 +243,7 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        paddingTop: 40,
+        // paddingTop: 40,
     },
     headerButton: {
         marginRight: 15,
@@ -183,28 +251,28 @@ const styles = StyleSheet.create({
     },
     heading: {
         fontSize: 28,
-        fontWeight: 'bold',
         marginBottom: 20,
     },
     walletCard: {
         backgroundColor: '#fff',
         borderRadius: 12,
         padding: 20,
+        paddingVertical: 40,
         elevation: 2,
         marginBottom: 20,
+        gap: 20
     },
     rowBetween: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: 10,
+        alignItems: 'center',
     },
     label: {
-        fontSize: 16,
+        fontSize: 22,
         fontWeight: '500',
     },
     balance: {
-        fontSize: 32,
+        fontSize: 26,
         fontWeight: 'bold',
         marginTop: 10,
     },
@@ -289,7 +357,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         backgroundColor: "#fff",
         borderRadius: 6,
-        marginBottom: 15,
+        marginBottom: 40,
     },
     viewAllText: {
         fontSize: 14,

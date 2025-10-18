@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Button, Text, View, Alert } from "react-native";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { Button, Text, View, Alert, Image, StyleSheet, ActivityIndicator } from "react-native";
+import { GoogleSignin, GoogleSigninButton, statusCodes } from "@react-native-google-signin/google-signin";
 import auth from "@react-native-firebase/auth";
 import { useNavigation } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
     const [userInfo, setUserInfo] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -16,12 +18,19 @@ export default function LoginScreen() {
     }, []);
 
     const handleGoogleLogin = async () => {
+        if (loading) return;
+
+        setLoading(true);
         try {
+            console.log("🔄 Starting Google login process...");
+
             // Check if Play Services are available
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            console.log("✅ Play services available");
 
             // Sign in with Google
             const signInResult = await GoogleSignin.signIn();
+            console.log("✅ Google signin successful");
 
             // CORRECTED: Access idToken from the data property
             const idToken = signInResult.data?.idToken;
@@ -29,32 +38,41 @@ export default function LoginScreen() {
             if (!idToken) {
                 console.error("❌ No ID token received. Full response:", signInResult);
                 Alert.alert("Login Error", "No ID token received from Google. Please check your configuration.");
+                setLoading(false);
                 return;
             }
 
-            console.log("idToken: ", idToken);
+            console.log("✅ Google ID token received");
 
             // Create a Firebase credential with the token
             const googleCredential = auth.GoogleAuthProvider.credential(idToken);
 
             // Sign in with credential
+            console.log("🔄 Signing in with Firebase...");
             const userCredential = await auth().signInWithCredential(googleCredential);
-
             const user = userCredential.user;
+
+            console.log("✅ Firebase signin successful, getting ID token...");
             const token = await user.getIdToken();
 
-            console.log("✅ Firebase User:", user);
-            console.log("🔥 Firebase Token:", token);
+            console.log("✅ Firebase User:", user.email);
+            console.log("🔥 Firebase Token received:", token ? "Yes" : "No");
 
             setUserInfo(user);
 
-            // navigate to tabs/home after login
-            navigation.reset({
-                index: 0,
-                routes: [{ name: "Tabs" }],
-            });
+            // Wait a moment to ensure auth state is fully updated
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            console.log("🔄 Navigating to Tabs...");
+
+            // Use navigate instead of reset for more reliable navigation
+            navigation.navigate("Tabs");
+
+            console.log("✅ Navigation triggered");
+
         } catch (error: any) {
-            console.error("Google login error", error);
+            console.error("❌ Google login error", error);
+            setLoading(false);
 
             if (error.code === statusCodes.SIGN_IN_CANCELLED) {
                 Alert.alert("Login Cancelled", "You cancelled the login process.");
@@ -63,21 +81,126 @@ export default function LoginScreen() {
             } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
                 Alert.alert("Play Services Not Available", "Google Play Services are not available.");
             } else {
-                Alert.alert("Login Error", "An unknown error occurred during login.");
+                Alert.alert("Login Error", error.message || "An unknown error occurred during login.");
             }
+        } finally {
+            setLoading(false);
         }
     };
 
-    return (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <Button title="Login with Google" onPress={handleGoogleLogin} />
+    const handleTestNavigation = () => {
+        console.log("🧪 Test navigation to Tabs");
+        navigation.navigate("Tabs");
+    };
 
-            {userInfo && (
-                <View style={{ marginTop: 20 }}>
-                    <Text>Welcome {userInfo.displayName}</Text>
-                    <Text>Email: {userInfo.email}</Text>
-                </View>
-            )}
-        </View>
+    return (
+        <SafeAreaView style={styles.container}>
+            {/* App Logo / Illustration */}
+            <View style={styles.header}>
+                <Image
+                    source={{
+                        uri: "https://www.sttribe.com/assets/2543_090525_Sttribe_HP-PNG-01-Bkds-OOd.png",
+                    }}
+                    style={styles.logo}
+                    resizeMode="contain"
+                />
+                <Text style={styles.title}>Welcome to Sttribe</Text>
+                <Text style={styles.subtitle}>
+                    Save money by sharing OTT subscriptions with your friends and family - simple,
+                    secure, and hassle-free.
+                </Text>
+            </View>
+
+            {/* Login options */}
+            <View style={styles.content}>
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#8B5CF6" />
+                        <Text style={styles.loadingText}>Signing you in...</Text>
+                    </View>
+                ) : (
+                    <>
+                        <GoogleSigninButton
+                            style={styles.googleButton}
+                            size={GoogleSigninButton.Size.Wide}
+                            color={GoogleSigninButton.Color.Dark}
+                            onPress={handleGoogleLogin}
+                            disabled={loading}
+                        />
+
+                        {/* Debug button - remove in production */}
+                        {/* <Button title="Test Navigation" onPress={handleTestNavigation} /> */}
+                    </>
+                )}
+
+                <Text style={styles.footerText}>
+                    By continuing, you agree to our{" "}
+                    <Text style={styles.link}>Terms of Service</Text> and{" "}
+                    <Text style={styles.link}>Privacy Policy</Text>.
+                </Text>
+            </View>
+        </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "#FFFF",
+        justifyContent: "space-evenly",
+    },
+    header: {
+        alignItems: "center",
+        marginTop: 80,
+        paddingHorizontal: 20,
+    },
+    logo: {
+        width: 120,
+        height: 120,
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#1F2937",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    subtitle: {
+        fontSize: 14,
+        color: "#6B7280",
+        textAlign: "center",
+        lineHeight: 20,
+    },
+    content: {
+        alignItems: "center",
+        marginBottom: 60,
+        paddingHorizontal: 20,
+    },
+    googleButton: {
+        width: 230,
+        height: 50,
+        marginBottom: 24,
+    },
+    loadingContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        height: 50,
+        marginBottom: 24,
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 14,
+        color: "#6B7280",
+    },
+    footerText: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        textAlign: "center",
+        lineHeight: 18,
+    },
+    link: {
+        color: "#6D28D9",
+        fontWeight: "500",
+    },
+});

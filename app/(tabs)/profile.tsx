@@ -11,11 +11,12 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'react-native-linear-gradient';
-import { User, Settings, Bell, Shield, CreditCard, CircleHelp as HelpCircle, LogOut, Edit, Star, Gift, Users, IndianRupee, ChevronRight, Phone, Mail, MapPin, Calendar, Wallet } from 'lucide-react-native';
+import { User, Settings, Bell, Shield, CreditCard, CircleHelp as HelpCircle, LogOut, Edit, Star, Gift, Users, IndianRupee, ChevronRight, Phone, Mail, MapPin, Calendar, Wallet, Paperclip } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { signOut } from "../../firebaseConfig";
 import auth from "@react-native-firebase/auth";
 import axios from 'axios';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 
 export default function ProfileScreen() {
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
   const [userProfile, setUserProfile] = useState([]);
   const [userStats, setUserStats] = useState([]);
 
+  console.log("userStats.monthlySpend : ", userStats.monthlySpend);
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
@@ -37,29 +39,28 @@ export default function ProfileScreen() {
 
           const idToken = await currentUser.getIdToken();
 
-          const tribesRes = await axios.get(
-            `https://api-s2onatgxwq-uc.a.run.app/api/auth/profile`,
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
-          // console.log("profile : ", tribesRes.data);
-          setUserProfile(tribesRes.data)
-          const statsRes = await axios.get(
-            `https://api-s2onatgxwq-uc.a.run.app/api/dashboard/stats`,
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
+          const [profileRes, statsRes] = await Promise.all([
+            axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/auth/profile`, {
+              headers: { Authorization: `Bearer ${idToken}` }
+            }),
+            axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/dashboard/stats`, {
+              headers: { Authorization: `Bearer ${idToken}` }
+            }),
+          ])
+          setUserProfile(profileRes.data);
           setUserStats(statsRes.data);
         } catch (error) {
-          console.error("Error fetching groups:", error);
+          console.error("Error fetching ProfileScreen data:", error);
         }
       };
       fetchData();
     }, []));
 
   const stats = [
-    { label: 'Monthly Savings', value: `₹${userStats.monthlySavings}`, icon: IndianRupee, color: '#10B981' },
-    { label: 'Active Groups', value: userStats.activeTribes, icon: Users, color: '#8B5CF6' },
-    { label: 'Subscriptions', value: userStats.totalSubscriptions, icon: Gift, color: '#F59E0B' },
-    { label: 'Monthly Spending', value: `₹${userStats.monthlySpend}`, icon: IndianRupee, color: '#10B981' },
+    { label: 'Monthly Savings', value: `₹${userStats?.monthlySavings}`, icon: IndianRupee, color: '#10B981' },
+    { label: 'Active Tribes', value: userStats?.activeTribes, icon: Users, color: '#8B5CF6' },
+    { label: 'Subscriptions', value: userStats?.totalSubscriptions, icon: Gift, color: '#F59E0B' },
+    { label: 'Monthly Spend', value: `₹${userStats?.monthlySpend}`, icon: IndianRupee, color: '#10B981' },
   ];
 
   const menuItems = [
@@ -80,10 +81,19 @@ export default function ProfileScreen() {
       ]
     },
     {
+      section: 'Policys',
+      items: [
+        { id: 'PrivacyPolicy', label: 'Privacy Policy', icon: Paperclip, action: () => router.navigate('PrivacyPolicy') },
+        { id: 'Refund', label: 'Refund Policy', icon: IndianRupee, action: () => router.navigate('RefundPolicy') },
+        { id: 'Terms&Conditions', label: 'Terms of Service', icon: Paperclip, action: () => router.navigate('TermsConditions') },
+        // { id: 'privacy', label: 'Privacy & Security', icon: Shield, action: () => router.push('/privacy') },
+      ]
+    },
+    {
       section: 'Support',
       items: [
         { id: 'help', label: 'Help & Support', icon: HelpCircle, action: () => router.navigate('Help') },
-        { id: 'rate', label: 'Rate App', icon: Star, action: () => handleRateApp() },
+        // { id: 'rate', label: 'Rate App', icon: Star, action: () => handleRateApp() },
       ]
     },
     {
@@ -114,26 +124,37 @@ export default function ProfileScreen() {
     Alert.alert(
       "Logout",
       "Are you sure you want to logout?",
+
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Logout",
           style: "destructive",
           onPress: async () => {
-            console.log("button is clicked")
             try {
-              await signOut();
-              setTimeout(() => {
-                router.navigate("Login");
-              }, 100);
-            } catch (err) {
-              Alert.alert("Error", err.message);
+              // Sign out from Firebase
+              await auth().signOut();
+
+              // Clear Google Sign-In session
+              await GoogleSignin.signOut();
+
+              // Revoke access to force account chooser on next login
+              await GoogleSignin.revokeAccess();
+
+              // Navigate back to login screen
+              router.navigate("Login");
+
+              console.log("✅ User fully logged out and access revoked");
+            } catch (err: any) {
+              console.error("❌ Logout error:", err);
+              Alert.alert("Error", err.message || "Something went wrong during logout.");
             }
-          }
+          },
         },
       ]
     );
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,7 +173,18 @@ export default function ProfileScreen() {
             colors={['#8B5CF6', '#A78BFA']}
             style={styles.profileGradient}
           >
-            <Image source={{ uri: userProfile.profileImageUrl }} style={styles.profileImage} />
+            {userProfile.profileImageUrl ? (
+              <Image
+                source={{ uri: userProfile.profileImageUrl }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.profilePlaceholder}>
+                <Text style={styles.profileInitials}>
+                  {`${userProfile.firstName?.[0] ?? ''}${userProfile.lastName?.[0] ?? ''}`.toUpperCase()}
+                </Text>
+              </View>
+            )}
             <Text style={styles.profileName}>{userProfile.firstName} {userProfile.lastName}</Text>
             <View style={styles.profileInfo}>
               <View style={styles.profileInfoItem}>
@@ -281,6 +313,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 3,
     borderColor: '#FFFFFF',
+  },
+  profilePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 6,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+
+  profileInitials: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   profileName: {
     fontSize: 24,

@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Image,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {
@@ -35,102 +36,120 @@ export default function HomeScreen() {
   const [recentGroups, setRecentGroups] = useState([]);
   const [freeContent, setFreeContent] = useState([]);
   const [profile, setProfile] = useState([]);
+  const [refreshing, setRefreshing] = useState(false); // later reloads
 
-  useFocusEffect(
-    useCallback(() => {
-      const fetchData = async () => {
-        try {
+  const fetchData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        // Only show big loader if nothing is cached yet
+        if (recentGroups.length === 0 || freeContent.length === 0) {
           setLoading(true);
-
-          const currentUser = auth().currentUser;
-
-          if (!currentUser) {
-            console.error("No user is logged in");
-            return;
-          }
-
-          const idToken = await currentUser.getIdToken();
-
-          const res = await axios.get(
-            `https://api-s2onatgxwq-uc.a.run.app/api/dashboard/stats`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`, // 👈 send token
-              },
-            }
-          );
-          // console.log("Dashboard stats:", res.data);
-          setDashboardstats(res.data);
-
-          const tribesRes = await axios.get(
-            `https://api-s2onatgxwq-uc.a.run.app/api/tribes`,
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
-          const profileData = await axios.get(
-            `https://api-s2onatgxwq-uc.a.run.app/api/auth/profile`,
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
-          setProfile(profileData.data);
-
-          const platformImages = {
-            Netflix: "https://images.pexels.com/photos/4009402/pexels-photo-4009402.jpeg?auto=compress&cs=tinysrgb&w=400",
-            "Amazon Prime": "https://images.pexels.com/photos/3944091/pexels-photo-3944091.jpeg?auto=compress&cs=tinysrgb&w=400",
-            "Disney+ Hotstar": "https://images.pexels.com/photos/7991669/pexels-photo-7991669.jpeg?auto=compress&cs=tinysrgb&w=400",
-          };
-
-          const transformed = tribesRes.data.map((tribe) => {
-            const platform = tribe.platform || "";
-            return {
-              id: tribe.id,
-              name: tribe.name,
-              platform,
-              members: tribe._count?.members ?? tribe.members.length,
-              avatars: tribe.members
-                .map(m => m.user?.profileImageUrl)
-                .filter(Boolean)
-                .slice(0, 5),
-              image:
-                tribe.imageUrl ||
-                platformImages[platform] ||
-                platformImages["Amazon Prime"], // fallback to Amazon Prime if platform unknown
-              color: "#E50914", // you could also map color based on platform
-            };
-          });
-          setRecentGroups(transformed);
-
-        } catch (error) {
-          console.error("Error fetching Dashboard Stats:", error);
-        } finally {
-          setLoading(false);
         }
+      }
+
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        console.error("No user logged in");
+        return;
+      }
+
+      const idToken = await currentUser.getIdToken();
+
+      // Run all requests in parallel
+      const [dashboardRes, tribesRes, profileRes, freeStreamsRes] = await Promise.all([
+        axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/dashboard/stats`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }),
+        axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/tribes`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }),
+        axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/auth/profile`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }),
+        axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/free-streams`), // free streams might not need auth
+      ]);
+
+      // ✅ Update state
+      setDashboardstats(dashboardRes.data);
+      setProfile(profileRes.data);
+      setFreeContent(freeStreamsRes.data);
+
+      const platformImages = {
+        Netflix:
+          "https://images.pexels.com/photos/4009402/pexels-photo-4009402.jpeg?auto=compress&cs=tinysrgb&w=400",
+        "Amazon Prime":
+          "https://images.pexels.com/photos/3944091/pexels-photo-3944091.jpeg?auto=compress&cs=tinysrgb&w=400",
+        "Disney+ Hotstar":
+          "https://images.pexels.com/photos/7991669/pexels-photo-7991669.jpeg?auto=compress&cs=tinysrgb&w=400",
       };
 
-      fetchData();
+      const transformedGroups = tribesRes.data.map((tribe) => {
+        const platform = tribe.platform || "";
+        return {
+          id: tribe.id,
+          name: tribe.name,
+          platform,
+          members: tribe._count?.members ?? tribe.members.length,
+          avatars: tribe.members
+            .map((m) => m.user?.profileImageUrl)
+            .filter(Boolean)
+            .slice(0, 5),
+          image:
+            tribe.imageUrl ||
+            platformImages[platform] ||
+            platformImages["Amazon Prime"],
+          color: "#E50914",
+        };
+      });
+
+      setRecentGroups(transformedGroups);
+    } catch (error) {
+      console.error("Error fetching HomeScreen data:", error);
+    } finally {
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  };
+
+  // first time only
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // 👇 Add this if you want auto refresh on screen focus without big loader
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(true);
     }, [])
   );
-  useFocusEffect(
-    useCallback(() => {
-      const fetchData = async () => {
-        try {
-          setLoading(true);
-          const res = await axios.get(`https://api-s2onatgxwq-uc.a.run.app/api/free-streams`);
-          setFreeContent(res.data);
-        } catch (error) {
-          console.error("Error fetching free streams:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchData();
-    }, []));
-
 
   const stats = [
-    { label: 'Active Groups', value: dashboardstats.activeTribes, icon: Users, color: '#8B5CF6', action: () => navigation.navigate('Groups') },
-    { label: 'Monthly Savings', value: dashboardstats.monthlySavings, icon: IndianRupee, color: '#10B981' },
-    { label: 'Total Subscriptions', value: dashboardstats.totalSubscriptions, icon: Tv, color: '#F59E0B' },
+    {
+      label: 'Active Groups',
+      value: dashboardstats?.activeTribes ?? 0,
+      icon: Users,
+      color: '#8B5CF6',
+      action: () => navigation.navigate('Groups')
+    },
+    {
+      label: 'Monthly Savings',
+      value: `₹${dashboardstats?.monthlySavings ?? 0}`,
+      icon: IndianRupee,
+      color: '#10B981'
+    },
+    {
+      label: 'Total Subscriptions',
+      value: dashboardstats?.totalSubscriptions ?? 0,
+      icon: Tv,
+      color: '#F59E0B'
+    },
   ];
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -183,7 +202,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
               >
                 <Text style={styles.disabledButtonText}>
-                  Ready To Purchase via Sttribe (Coming Soon)
+                  Coming Soon: Buy Subscriptions Directly on Sttribe
                 </Text>
               </LinearGradient>
               <View style={styles.versionContainer}>
@@ -202,43 +221,58 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {recentGroups.slice(0, 3).map((group) => (
-            <TouchableOpacity
-              key={group.id}
-              style={styles.groupCard}
-              onPress={() => navigation.navigate("GroupDetails", { id: group.id })}
-            >
-              <Image source={{ uri: group.image }} style={styles.groupImage} />
-              <View style={styles.groupInfo}>
-                <Text style={styles.groupName}>{group.name}</Text>
-                {/* <Text style={styles.groupPlatform}>{group.platform}</Text> */}
-                <View style={styles.groupMeta}>
-                  <View style={styles.groupMembers}>
-                    <Users size={14} color="#6B7280" />
-                    <Text style={styles.groupMemberCount}>{group.members} members</Text>
-                  </View>
-                  {/* <Text style={styles.groupCost}>₹{group.cost}/month</Text> */}
-                  <View style={styles.memberAvatars}>
-                    {(group.avatars ?? []).map((avatar, index) => (
-                      <Image
-                        key={index}
-                        source={{ uri: avatar }}
-                        style={[styles.memberAvatar, { marginLeft: index > 0 ? -8 : 0 }]}
-                      />
-                    ))}
-                    {group.members > (group.avatars?.length ?? 0) && (
-                      <View style={[styles.memberAvatar, styles.extraMember]}>
-                        <Text style={styles.extraMemberText}>
-                          +{group.members - (group.avatars?.length ?? 0)}
-                        </Text>
-                      </View>
-                    )}
-                    <ChevronRight size={20} color="#9CA3AF" />
+          {loading ? (
+            <View style={styles.loader}>
+              <ActivityIndicator size="large" color="#8B5CF6" />
+              <Text style={styles.loaderText}>Loading your tribes...</Text>
+            </View>
+          ) : recentGroups.length > 0 ? (
+            recentGroups.slice(0, 3).map((group) => (
+              <TouchableOpacity
+                key={group.id}
+                style={styles.groupCard}
+                onPress={() => navigation.navigate("GroupDetails", { id: group.id })}
+              >
+                <Image source={{ uri: group.image }} style={styles.groupImage} />
+                <View style={styles.groupInfo}>
+                  <Text style={styles.groupName}>{group.name}</Text>
+                  <View style={styles.groupMeta}>
+                    <View style={styles.groupMembers}>
+                      <Users size={14} color="#6B7280" />
+                      <Text style={styles.groupMemberCount}>{group.members} members</Text>
+                    </View>
+                    <View style={styles.memberAvatars}>
+                      {(group.avatars ?? []).map((avatar, index) => (
+                        <Image
+                          key={index}
+                          source={{ uri: avatar }}
+                          style={[styles.memberAvatar, { marginLeft: index > 0 ? -8 : 0 }]}
+                        />
+                      ))}
+                      {group.members > (group.avatars?.length ?? 0) && (
+                        <View style={[styles.memberAvatar, styles.extraMember]}>
+                          <Text style={styles.extraMemberText}>
+                            +{group.members - (group.avatars?.length ?? 0)}
+                          </Text>
+                        </View>
+                      )}
+                      <ChevronRight size={20} color="#9CA3AF" />
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>You don't have any tribes yet</Text>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => navigation.navigate("CreateGroup")}
+              >
+                <Text style={styles.createButtonText}>Create your tribe now</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Trending Content */}
@@ -377,7 +411,7 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems:'center',
+    alignItems: 'center',
     marginVertical: 15,
     marginTop: 20,
   },
@@ -510,6 +544,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Inter-SemiBold',
     color: '#6B7280',
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginBottom: 12,
+  },
+  createButton: {
+    backgroundColor: "#8B5CF6",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   groupMemberCount: {
     fontSize: 12,

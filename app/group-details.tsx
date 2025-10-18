@@ -11,15 +11,19 @@ import {
   Modal,
   TextInput,
   Linking,
+  Button,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { ArrowLeft, Users, IndianRupee, Calendar, Settings, MessageCircle, Crown, UserPlus, Copy, Share, Bell, CreditCard, Shield, CircleCheck as CheckCircle, Clock, CircleAlert as AlertCircle, Wallet, Download, XCircle, Star, Check, Eye, MessageSquare } from 'lucide-react-native';
+import { ArrowLeft, Users, IndianRupee, Calendar, Settings, MessageCircle, Crown, UserPlus, Copy, Share, Bell, CreditCard, Shield, CircleCheck as CheckCircle, Clock, CircleAlert as AlertCircle, Wallet, Download, XCircle, Star, Check, Eye, MessageSquare, History, ArrowDownCircle } from 'lucide-react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import axios from 'axios';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 // import RazorpayCheckout from 'react-native-razorpay';
+import RazorpayCheckout from 'react-native-razorpay';
+import emailjs from "emailjs-com";
+
 
 export default function GroupDetailsScreen() {
   const router = useNavigation();
@@ -28,7 +32,9 @@ export default function GroupDetailsScreen() {
   const [activeTab, setActiveTab] = useState('overview');
   // console.log("id from the parant : ", id)
   const [groupData, setGroupData] = useState({});
+  const [tribe, setTribe] = useState({});
   const [membersData, setMembersData] = useState([]);
+  console.log("membersData payments: ", membersData);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
@@ -36,7 +42,7 @@ export default function GroupDetailsScreen() {
   const [subscription, setSubscription] = useState([]);
   const [credentials, setCredentials] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [noOfSubs, setnoOfSubs] = useState([]);
+  const [noOfSubs, setNoOfSubs] = useState([]);
   const [isAddPlatformModalVisible, setAddPlatformModalVisible] = useState(false);
   const [viewCredentialsModalVisible, setViewCredentialsModalVisible] = useState(false);
   const [modalStep, setModalStep] = useState("select");
@@ -53,9 +59,12 @@ export default function GroupDetailsScreen() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [upiId, setUpiId] = useState("");
 
 
-  // console.log("hii :", id);
+  console.log("hii :", id);
 
   const selectedPlatformObj = platforms.find(p => p.id === selectedPlatform);
   const selectedPlanObj = selectedPlatformObj?.plans.find(pl => pl.planName === selectedPlan);
@@ -73,113 +82,313 @@ export default function GroupDetailsScreen() {
     },
   };
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const currentUser = auth().currentUser; // use auth() from @react-native-firebase/auth
-        if (currentUser) {
-          const idToken = await currentUser.getIdToken();
-          const profileResponse = await axios.get(
-            'https://api-s2onatgxwq-uc.a.run.app/api/user/profile',
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
-          setUserProfile(profileResponse.data);
-        }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchUserProfile = async () => {
+  //     try {
+  //       const currentUser = auth().currentUser; // use auth() from @react-native-firebase/auth
+  //       if (currentUser) {
+  //         const idToken = await currentUser.getIdToken();
+  //         const profileResponse = await axios.get(
+  //           'https://api-s2onatgxwq-uc.a.run.app/api/user/profile',
+  //           { headers: { Authorization: `Bearer ${idToken}` } }
+  //         );
+  //         setUserProfile(profileResponse.data);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching user profile:', error);
+  //     }
+  //   };
 
-    fetchUserProfile();
-  }, []);
+  //   fetchUserProfile();
+  // }, []);
 
-  const handlePayment = async () => {
-    setProcessing(true);
+  const handlePayment = async (perMemberCost: number, tribeId: string) => {
+    console.log("=== Payment process started ===");
+    console.log("Tribe ID:", tribeId);
+    console.log("Per member cost:", perMemberCost);
 
     try {
-      let idToken;
       const currentUser = auth().currentUser;
-      console.log("currentUser:", currentUser);
-
-      if (currentUser) {
-        idToken = await currentUser.getIdToken();
-        console.log("ID Token:", idToken);
-      } else {
+      if (!currentUser) {
+        console.log("User not logged in");
         Alert.alert('Error', 'User not logged in');
-        setProcessing(false);
         return;
       }
 
-      // Create Razorpay order
+      const idToken = await currentUser.getIdToken();
+      console.log("Firebase ID token obtained");
+      const amountInPaise = Math.round(perMemberCost * 100);
+      // 1️⃣ Create Razorpay order via backend
+      console.log("Creating Razorpay order via backend...", perMemberCost);
+      console.log("Calling create-order API...");
       const orderResponse = await axios.post(
         'https://api-s2onatgxwq-uc.a.run.app/api/razorpay/create-order',
         {
-          amount: Math.round(perMemberCost * 100), // Convert to paise
+          amount: amountInPaise, // Convert to paise
           currency: 'INR',
-          receipt: `tribe_${id}_${Date.now()}`,
+          receipt: `tribe_${tribeId}_${Date.now()}`
         },
         { headers: { Authorization: `Bearer ${idToken}` } }
       );
-
+      console.log("Order API success:", orderResponse.data);
       const orderData = orderResponse.data;
+      console.log("Razorpay order created:", orderData);
 
-      // Payment page URL
-      const paymentPageUrl = `https://api-s2onatgxwq-uc.a.run.app/api/payment/checkout?order_id=${orderData.id}&amount=${orderData.amount}&tribe_id=${id}`;
+      // 2️⃣ Configure Razorpay checkout
+      const options = {
+        key: "rzp_live_RPrSOy1pADkWRe",
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Sttribe - Ebirtts Technologies Pvt Ltd",
+        description: `Member payment for ${selectedPlatformObj?.name || "Platform"}`,
+        order_id: orderData.id,
+        prefill: {
+          name: currentUser.displayName || currentUser.email?.split('@')[0] || "User",
+          email: currentUser.email || "test@example.com",
+          contact: currentUser.phoneNumber || "9999999999",
+        },
+        theme: { color: "#6366f1" }
+      };
 
-      // Open URL in system browser (React Native CLI)
-      const supported = await Linking.canOpenURL(paymentPageUrl);
-      if (supported) {
-        await Linking.openURL(paymentPageUrl);
-      } else {
-        Alert.alert('Error', 'Cannot open payment page');
-        setProcessing(false);
+      console.log("Opening Razorpay checkout with options:", options);
+
+      // 3️⃣ Open Razorpay checkout
+      RazorpayCheckout.open(options)
+        .then(async (response) => {
+          console.log("Razorpay checkout completed, response:",
+            response.razorpay_order_id,
+            response.razorpay_payment_id,
+            response.razorpay_signature,
+          );
+
+          const paymentResult = {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          };
+
+          try {
+            // 4️⃣ Verify payment on backend
+            console.log("Verifying payment on backend...");
+            const verifyResp = await axios.post(
+              "https://api-s2onatgxwq-uc.a.run.app/api/razorpay/verify-payment",
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                paymentIds: [/* array of payment IDs, or leave empty if not applicable */],
+                subscriptionId: 'nextflix123',
+                userId: currentUser.uid,
+                amount: orderData.amount,
+              },
+              { headers: { Authorization: `Bearer ${idToken}` } }
+            );
+
+            console.log("Payment verification response from backend:", verifyResp.data);
+
+            if (verifyResp.data.success) {
+              console.log("Payment verified successfully, processing purchase...");
+              await processPurchase(paymentResult);
+
+              console.log("Purchase processed successfully");
+              Alert.alert('Success', 'Your payment has been recorded! Once all group members pay their share of the subscription amount, you’ll receive the total subscription value directly to your linked UPI ID \n \n ⏳ We’ll notify you once the full amount is settled',
+                [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      router.navigate("Tabs", { screen: "Groups" });
+                    },
+                  },
+                ]
+              );
+            } else {
+              console.log("Payment verification failed:", verifyResp.data);
+              Alert.alert('Verification Failed', 'Payment verification failed. Please contact support.');
+            }
+
+          } catch (verErr) {
+            console.error('Verification error:', verErr);
+            Alert.alert('Error', 'Payment verification error. Please try again.');
+          }
+        })
+        .catch((error) => {
+          console.error("Razorpay checkout error:", error);
+          Alert.alert('Payment Failed', 'Payment process was cancelled or failed.');
+        });
+
+    } catch (err) {
+      console.error('Payment error:', err);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleMemberPayment = async (
+    memberId: string,
+    tribeId: string,
+    subscriptionId: string,
+    amount: number,
+    memberName?: string,
+    memberEmail?: string
+  ) => {
+    console.log("🚀 handleMemberPayment called with:", {
+      memberId,
+      tribeId,
+      subscriptionId,
+      amount,
+      memberName,
+      memberEmail,
+    });
+
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        console.error("❌ No current user found.");
+        Alert.alert("Error", "User not logged in");
         return;
       }
 
-      // ⚠️ Since Linking.openURL does not return result like Expo WebBrowser,
-      // you need to handle **payment verification** via backend webhook or polling
-      // Example: call verifyPayment after some delay or on next screen
-      await verifyPayment(orderData.id);
+      const idToken = await currentUser.getIdToken();
+      console.log("✅ Got Firebase ID token");
 
-    } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Error', 'Payment failed. Please try again.');
-      setProcessing(false);
-    }
-  };
-
-  const verifyPayment = async (orderId) => {
-    try {
-      let idToken;
-      const currentUser = auth().currentUser;
-      if (currentUser) {
-        idToken = await currentUser.getIdToken();
-        console.log("ID Token:", idToken);
+      // Validate amount
+      const safeAmount = Number(amount);
+      if (isNaN(safeAmount)) {
+        console.error("❌ Invalid amount received:", amount);
+        Alert.alert("Payment Error", "Invalid amount. Please try again.");
+        return;
       }
 
-      const verifyResponse = await axios.post(
-        'https://api-s2onatgxwq-uc.a.run.app/api/razorpay/verify-payment',
-        { order_id: orderId },
-        { headers: { Authorization: `Bearer ${idToken}` } }
+      // Convert to 2 decimal places
+      const amountRuppe = parseFloat(safeAmount.toFixed(2));
+      console.log("💰 Amount details:");
+      console.log("   - Original amount:", amount);
+      console.log("   - Amount in INR:", amountRuppe);
+      console.log("   - Amount in paise:", amountRuppe * 100);
+
+      // 1️⃣ Create member payment order via backend
+      console.log("📡 Creating order on backend...");
+      console.log("   - Sending to backend (INR):", amountRuppe);
+
+      const orderResponse = await axios.post(
+        "https://api-s2onatgxwq-uc.a.run.app/api/member-payment",
+        {
+          subscriptionId,
+          tribeId,
+          memberId,
+          amount: amountRuppe, // Sending INR to backend
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
       );
 
-      if (verifyResponse.data.success) {
-        // Process the purchase
-        await processPurchase();
+      console.log("✅ Order API response:", orderResponse.data);
+      const orderData = orderResponse.data;
+
+      // 🔍 CRITICAL DEBUG LOGS
+      console.log("🔍 DEBUG - Amount conversion check:");
+      console.log("   - Received from backend:", orderData.amount);
+      console.log("   - This should be paise (1054 for 10.54 INR)");
+      console.log("   - Converted to INR:", orderData.amount / 100);
+
+      if (!orderData?.orderId) {
+        console.error("❌ No orderId in orderData:", orderData);
+        throw new Error("Failed to create payment order");
       }
-    } catch (error) {
-      console.error('Verification error:', error);
-      setProcessing(false);
+
+      // 2️⃣ Configure Razorpay checkout
+      const options = {
+        key: "rzp_live_RPrSOy1pADkWRe",
+        amount: orderData.amount, // This should be in paise
+        currency: orderData.currency,
+        name: "Sttribe - Ebirtts Technologies Pvt Ltd",
+        description: `Member payment for subscription`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: memberName || memberEmail?.split("@")[0] || "Member",
+          email: memberEmail || "test@example.com",
+          contact: "9999999999",
+        },
+        theme: { color: "#6366f1" },
+      };
+
+      console.log("🚀 Razorpay Checkout details:");
+      console.log("   - Amount in options (paise):", options.amount);
+      console.log("   - Amount in options (INR):", options.amount / 100);
+      console.log("   - Order ID:", options.order_id);
+
+      RazorpayCheckout.open(options)
+        .then(async (response) => {
+          console.log("✅ Razorpay success response:", response);
+          try {
+            // 4️⃣ Verify payment via backend
+            console.log("📡 Verifying payment with backend...");
+            console.log("   - Sending amount for verification:", orderData.amount, "(paise)");
+
+            const verifyResponse = await axios.post(
+              "https://api-s2onatgxwq-uc.a.run.app/api/razorpay/verify-payment",
+              {
+                razorpay_order_id: orderData.orderId,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                paymentIds: [],
+                subscriptionId,
+                userId: memberId,
+                amount: orderData.amount / 100, // Sending paise for verification
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${idToken}`,
+                },
+              }
+            );
+
+            console.log("✅ Verification response:", verifyResponse.data);
+
+            Alert.alert(
+              "Payment Successful!",
+              "Member payment completed. You can now view subscription credentials.",
+              [
+                {
+                  text: "OK",
+                  onPress: () => {
+                    router.navigate("Tabs", { screen: "Groups" });
+                  },
+                },
+              ]
+            );
+          } catch (verifyError: any) {
+            console.error("❌ Payment verification error:", verifyError.response?.data || verifyError);
+            Alert.alert(
+              "Payment verification failed",
+              verifyError.response?.data?.message || verifyError.message || "Please contact support"
+            );
+          }
+        })
+        .catch((error) => {
+          console.error("❌ Razorpay Checkout Error:", error);
+          Alert.alert("Payment Failed", "Payment was cancelled or failed.");
+        });
+    } catch (error: any) {
+      console.error("❌ Payment Error (outer catch):", error.response?.data || error.message);
+      Alert.alert(
+        "Payment Error",
+        error.response?.data?.message || error.message || "Failed to initiate payment. Please try again."
+      );
     }
   };
 
-  const processPurchase = async () => {
+
+
+  const processPurchase = async (paymentResult) => {
     try {
+      console.log("paymentResult : ", paymentResult);
       let idToken;
       const currentUser = auth().currentUser;
       if (currentUser) {
         idToken = await currentUser.getIdToken();
-        console.log("ID Token:", idToken);
       }
 
       const purchaseResponse = await axios.post(
@@ -187,7 +396,6 @@ export default function GroupDetailsScreen() {
         {
           tribeId: id,
           selectedPlans: [{
-            platformId: selectedPlatform,
             platformName: selectedPlatformObj?.name,
             planName: selectedPlanObj?.planName,
             duration: selectedPlanObj?.duration,
@@ -201,31 +409,35 @@ export default function GroupDetailsScreen() {
           }],
           totalAmount: selectedPlanObj?.price,
           splitAmount: perMemberCost,
-          memberCount: membersData.length,
+          paymentDetails: {
+            razorpay_order_id: paymentResult.razorpay_order_id,
+            razorpay_payment_id: paymentResult.razorpay_payment_id,
+            razorpay_signature: paymentResult.razorpay_signature,
+          }
         },
         {
           headers: { Authorization: `Bearer ${idToken}` }
         }
       );
 
-      Alert.alert(
-        'Success!',
-        'Subscription created successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setAddPlatformModalVisible(false);
-              resetModalState();
-              // You might want to refresh your data here
-            }
-          }
-        ]
+      Alert.alert('Success!', 'Subscription purchased successfully!', [{
+        text: 'OK', onPress: () => {
+          setAddPlatformModalVisible(false);
+          resetModalState();
+          router.navigate('Groups');
+          // Refresh subscriptions
+          // fetchSubscriptions(); // Add this function
+        }
+      }
+      ]
       );
 
     } catch (error) {
-      console.error('Purchase error:', error);
-      Alert.alert('Error', 'Failed to process purchase. Please contact support.');
+      console.error('Purchase error:', error.response?.data || error.message);
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to process purchase. Please contact support.'
+      );
     } finally {
       setProcessing(false);
     }
@@ -277,6 +489,8 @@ export default function GroupDetailsScreen() {
           };
 
           const tribe = tribesRes.data; // ✅ single object, not array
+          console.log("tribe response : ", tribe);
+          setTribe(tribe);
           setMembersData(tribe.members);
           const platform = tribe.platform || "";
 
@@ -333,7 +547,8 @@ export default function GroupDetailsScreen() {
             console.warn("No subscription found for tribe:", id);
             return;
           }
-          setnoOfSubs(subscription.ottService);
+          console.log("subscription.ottService:", subscription.ottService);
+          setNoOfSubs(subscription.ottService);
           console.log("No Of Subs : ", subscription);
           const tribeMembers = subscription.tribe.members || [];
           setSubscription(subscription);
@@ -358,10 +573,11 @@ export default function GroupDetailsScreen() {
               profileImageUrl: member?.user?.profileImageUrl || null,
             };
           });
-
+          const billingNew = tribesRes.data;
+          console.log('renwal date with tribe : ', billingNew?.subscriptions[0]?.renewalDate?._seconds);
           // now you can set billing
           const newBilling = {
-            nextBilling: subscription.renewalDate?._seconds
+            nextBilling: subscription?.renewalDate?._seconds
               ? subscription.renewalDate._seconds * 1000
               : null,
             billingHistory: paymentsWithNames,
@@ -369,11 +585,11 @@ export default function GroupDetailsScreen() {
           setBilling(newBilling);
           console.log("Updated billing:", newBilling);
           // compute personal cost = monthlyPrice / number of members
-          const memberCount = subscription.tribe.memberIds.length;
-          const personalCost = subscription.ottService.monthlyPrice / memberCount;
-
+          const memberCount = subscription?.tribe?.memberIds?.length ?? 1; // avoid divide by 0
+          const monthlyPrice = subscription?.ottService?.monthlyPrice ?? 0;
+          const perMemberCost = (monthlyPrice / memberCount) * 1.09;
         } catch (error) {
-          console.error("Error fetching groups:",);
+          console.error("Error fetching groups:", error);
         }
       };
 
@@ -381,14 +597,15 @@ export default function GroupDetailsScreen() {
     }, [id])
   );
 
+  // console.log("tribe info: ", tribe);
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'members', label: 'Members' },
     { id: 'billing', label: 'Billing' },
     { id: 'subscriptions', label: 'subscriptions' },
-    // ...(groupData.isOwner
-    //   ? [{ id: 'settings', label: 'Settings' }]
-    //   : []),
+    ...(groupData.isOwner
+      ? [{ id: 'Withdraw', label: 'Withdraw' }]
+      : []),
   ];
 
   const getFAIconName = (iconClass: string) => {
@@ -550,6 +767,13 @@ export default function GroupDetailsScreen() {
   const handleAddOttPlatform = () => {
     setAddPlatformModalVisible(true);
   }
+  const amountRupee = subscription?.payments?.[0]?.amount ?? 0;
+
+  console.log("amountRupee : ", amountRupee);
+
+  const displayAmount = Number(amountRupee).toFixed(2);
+  console.log("amountRupee (formatted):", displayAmount);
+
   const renderOverview = () => (
     <View style={styles.tabContent}>
       {/* Group Info Card */}
@@ -594,8 +818,8 @@ export default function GroupDetailsScreen() {
         <View style={styles.statCard}>
           <Calendar size={20} color="#F59E0B" />
           <Text style={styles.statValue}>
-            {billing?.nextBilling
-              ? new Date(billing.nextBilling).toLocaleDateString('en-US', {
+            {subscription?.renewalDate?._seconds
+              ? new Date(subscription.renewalDate._seconds * 1000).toLocaleDateString('en-US', {
                 month: 'numeric',
                 day: 'numeric',
                 year: 'numeric',
@@ -606,12 +830,13 @@ export default function GroupDetailsScreen() {
         </View>
         <View style={styles.statCard}>
           <IndianRupee size={20} color="#10B981" />
-          <Text style={styles.statValue}>₹{billing?.billingHistory?.[0]?.amount ?? "0"}</Text>
+          <Text style={styles.statValue}>
+            ₹{displayAmount}
+          </Text>
           <Text style={styles.statLabel}>Your Share</Text>
         </View>
       </View>
 
-      {/* Admin Withdrawal Section */}
       {groupData.isOwner && (
         <View style={styles.withdrawalCard}>
           <LinearGradient
@@ -623,6 +848,7 @@ export default function GroupDetailsScreen() {
               You can now purchase the subscriptions.
             </Text>
             <Text style={{ marginBottom: 16, color: '#FFFFFF' }}>Note: 1 Tribe Can contain Only One Subscription</Text>
+            <Text style={{ marginBottom: 16, color: '#FFFFFF', textAlign: 'center' }}>Note: 2 All the money you can Withdraw from Withdraw tab on Beside Subscription{'\n'}You can withdraw the total amount once all members have paid their share</Text>
             {(() => {
               const subsArray = Array.isArray(noOfSubs) ? noOfSubs : [noOfSubs];
               if (subsArray.length === 0) {
@@ -881,7 +1107,7 @@ export default function GroupDetailsScreen() {
                   ₹{billing.billingHistory[0].amount}
                 </Text>
               ) : (
-                <Text style={styles.nextPaymentAmountText}>There are No Subscription Add Subscription</Text>
+                <Text style={styles.nextPaymentAmountText}> No active subscriptions yet. Add one to get started.</Text>
               )}
             </View>
             {/* <TouchableOpacity style={styles.payNowButton}>
@@ -894,7 +1120,7 @@ export default function GroupDetailsScreen() {
 
         <Text style={styles.sectionTitle}>Payment Status: </Text>
 
-        {noOfSubs ? (
+        {subscription ? (
           (membersData || []).map((member, idx) => {
             const paymentStatus = getPaymentStatus(member.userId);
             return (
@@ -957,7 +1183,7 @@ export default function GroupDetailsScreen() {
           })
         ) : (
           <Text style={{ fontSize: 14, color: "#9CA3AF", marginVertical: 20, textAlign: 'center' }}>
-            No subscriptions available
+            No subscriptions found. Add one to begin sharing.
           </Text>
         )}
 
@@ -992,7 +1218,7 @@ export default function GroupDetailsScreen() {
               ))
           ) : (
             <Text style={{ color: '#9CA3AF', textAlign: 'center' }}>
-              No paid transactions found.
+              No paid transactions found yet.
             </Text>
           )
         }
@@ -1045,7 +1271,7 @@ export default function GroupDetailsScreen() {
                   <Text
                     style={[
                       styles.platformImage,
-                      { color: sub.color, fontSize: 28, fontWeight: "bold" }
+                      { color: '#1f80e0', fontSize: 28, fontWeight: "bold" }
                     ]}
                   >
                     {sub.name?.charAt(0).toUpperCase()}
@@ -1105,7 +1331,7 @@ export default function GroupDetailsScreen() {
                         Payment Required
                       </Text>
                       <Text style={{ fontSize: 12, color: "#B45309" }}>
-                        Amount: ₹{perMemberCost} (includes 9% platform fee)
+                        Amount: ₹{subscription?.payments?.[0]?.amount} (includes 9% platform fee)
                       </Text>
                     </View>
 
@@ -1118,13 +1344,28 @@ export default function GroupDetailsScreen() {
                         backgroundColor: "#16A34A",
                         borderRadius: 6,
                       }}
-                      onPress={() =>
-                        Alert.alert("Payment", `Paying ₹${perMemberCost}`)
-                      }
+                      onPress={() => {
+                        const currentUser = auth().currentUser;
+
+                        if (!currentUser) {
+                          Alert.alert("Error", "User not logged in");
+                          return;
+                        }
+
+                        const memberId = currentUser.uid;
+                        const memberName =
+                          currentUser.displayName ||
+                          currentUser.email?.split("@")[0] ||
+                          "Member";
+                        const memberEmail = currentUser.email || "test@example.com";
+                        const subscriptionId = subscription.id;
+                        const amount = subscription?.payments?.[0]?.amount;
+                        handleMemberPayment(memberId, id, subscriptionId, amount, memberName, memberEmail);
+                      }}
                     >
                       <CreditCard size={14} color="#fff" style={{ marginRight: 4 }} />
                       <Text style={{ fontSize: 12, color: "#fff" }}>
-                        Pay ₹{perMemberCost}
+                        Pay ₹{subscription?.payments?.[0]?.amount}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1140,18 +1381,21 @@ export default function GroupDetailsScreen() {
               </View>
             </View>
           )
-        })}
+        })
+        }
         {/* Admin Actions */}
-        {subsArray.length === 0 && groupData.isOwner && (
-          (m) => m.userId === currentUserId && m.role === "admin"
-        ) && (
+        {
+          subsArray.length === 0 && groupData.isOwner && (
+            (m) => m.userId === currentUserId && m.role === "admin"
+          ) && (
             <View style={styles.adminActions}>
               <TouchableOpacity onPress={handleAddOttPlatform} style={styles.adminActionButton}>
                 <CreditCard size={20} color="#4F46E5" />
                 <Text style={styles.adminActionText}>Add OTT Platforms To Trbe</Text>
               </TouchableOpacity>
             </View>
-          )}
+          )
+        }
         <Modal
           visible={viewCredentialsModalVisible}
           transparent
@@ -1161,7 +1405,7 @@ export default function GroupDetailsScreen() {
           <View style={styles.overlay}>
             <View style={styles.modalContainer}>
               {/* Title */}
-              <Text style={styles.title}>JioCinema Credentials</Text>
+              <Text style={styles.title}>{noOfSubs.name} Credentials</Text>
               <Text style={styles.subtitle}>
                 Use these credentials to access your shared subscription.
               </Text>
@@ -1234,6 +1478,207 @@ export default function GroupDetailsScreen() {
       )}
     </View>
   );
+
+  const WithdrawalTab = () => {
+
+    const totalPaid = (billing?.billingHistory ?? [])
+      .filter(bill => bill.status === 'paid') // only paid bills
+      .reduce((acc, bill) => acc + parseFloat(bill.amount || "0"), 0);
+
+    console.log("totalPaid :", totalPaid)
+
+    // Format as currency
+    const availableBalance = `₹${totalPaid.toFixed(2)}`;
+
+    // console.log("availableBalance : ", availableBalance)
+
+    const getPaymentStatus = (userId) => {
+      const payment = subscription?.payments?.find((p) => p.userId === userId);
+      return payment?.status === "paid" ? "paid" : "pending";
+    };
+
+    const show = () => {
+      const allPaid =
+        membersData.length > 0 &&
+        membersData.every((member) => getPaymentStatus(member.userId) === "paid");
+
+      console.log("allPaid status: ", allPaid);
+
+      if (allPaid) {
+        setShowForm(!showForm);
+      } else {
+        Alert.alert(
+          "Withdrawal Not Allowed",
+          "All members haven't paid yet. Notify them and try again later.",
+          [{ text: "OK" }]
+        );
+      }
+    };
+
+    const handleSubmit = () => {
+      if (!amount || !upiId) {
+        Alert.alert("Error", "Please enter amount and UPI ID");
+        return;
+      }
+
+      const templateParams = {
+        amount,
+        upiId,
+      };
+
+      emailjs
+        .send("service_89awnbg", "template_ktgf56o", templateParams, "pPmLWHrwJDI-XTfcc")
+        .then(
+          (result) => {
+            Alert.alert("Success", "Email sent successfully!");
+            setAmount("");
+            setUpiId("");
+            setShowForm(false);
+          },
+          (error) => {
+            console.error(error.text);
+            Alert.alert("Error", "Failed to send email");
+          }
+        );
+    };
+
+    return (
+      <View style={{ flex: 1, padding: 16, backgroundColor: "#F9FAFB" }}>
+        {/* Available Balance */}
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 8,
+            padding: 16,
+            marginBottom: 20,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>Available Balance</Text>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: "#4F46E5", marginTop: 8 }}>{availableBalance}</Text>
+        </View>
+
+        {/* Withdrawal Section */}
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 8,
+            padding: 16,
+            marginBottom: 20,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 12 }}>Withdrawal</Text>
+
+          {/* Request Withdrawal */}
+          <TouchableOpacity
+            onPress={() => show()}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: "#E5E7EB",
+            }}
+          >
+            <Text style={{ fontSize: 14, color: "#111827" }}>Request Withdrawal</Text>
+            <ArrowDownCircle size={20} color="#6B7280" />
+          </TouchableOpacity>
+
+          {/* Withdrawal Form */}
+          {showForm && (
+            <View style={{ marginTop: 16 }}>
+              <TextInput
+                placeholder="Enter Amount"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="numeric"
+                value={amount}
+                onChangeText={setAmount}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#D1D5DB",
+                  borderRadius: 6,
+                  padding: 10,
+                  marginBottom: 12,
+                  fontSize: 14,
+                }}
+              />
+              <TextInput
+                placeholder="Enter UPI ID"
+                placeholderTextColor="#9CA3AF"
+                value={upiId}
+                onChangeText={setUpiId}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#D1D5DB",
+                  borderRadius: 6,
+                  padding: 10,
+                  marginBottom: 12,
+                  fontSize: 14,
+                }}
+              />
+              <Button title="Submit" onPress={handleSubmit} color="#4F46E5" />
+            </View>
+          )}
+
+          {/* Withdrawal History */}
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: 12,
+              marginTop: 12,
+            }}
+          >
+            <Text style={{ fontSize: 14, color: "#111827" }}>Withdrawal History</Text>
+            <History size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Admin Actions Section */}
+        {/* <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 8,
+            padding: 16,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 12 }}>Admin Actions</Text>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: "#FCA5A5",
+            }}
+          >
+            <Text style={{ fontSize: 14, color: "#EF4444" }}>Manage Withdrawal Requests</Text>
+            <AlertCircle size={20} color="#EF4444" />
+          </TouchableOpacity>
+        </View> */}
+      </View>
+    );
+  };
+
+
 
   const renderPlatformModal = () => {
     return (
@@ -1529,7 +1974,8 @@ export default function GroupDetailsScreen() {
                   <TouchableOpacity
                     style={styles.payBtn}
                     onPress={() => {
-                      console.log("Proceeding with payment of ₹64.00");
+                      handlePayment(perMemberCost, id);
+                      console.log("Proceeding with payment of");
                     }}
                   >
                     <Text style={styles.payBtnText}>Pay ₹{perMemberCost}</Text>
@@ -1600,6 +2046,7 @@ export default function GroupDetailsScreen() {
         {activeTab === 'members' && renderMembers()}
         {activeTab === 'billing' && renderBilling()}
         {activeTab === 'subscriptions' && renderSubscriptions()}
+        {activeTab === 'Withdraw' && WithdrawalTab()}
         {activeTab === 'settings' && renderSettings()}
       </ScrollView>
     </SafeAreaView>

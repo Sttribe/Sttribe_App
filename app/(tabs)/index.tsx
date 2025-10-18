@@ -129,10 +129,27 @@ export default function HomeScreen() {
   );
 
   const stats = [
-    { label: 'Active Groups', value: dashboardstats?.activeTribes, icon: Users, color: '#8B5CF6', action: () => navigation.navigate('Groups') },
-    { label: 'Monthly Savings', value: `₹${dashboardstats?.monthlySavings}`, icon: IndianRupee, color: '#10B981' },
-    { label: 'Total Subscriptions', value: dashboardstats?.totalSubscriptions, icon: Tv, color: '#F59E0B' },
+    {
+      label: 'Active Groups',
+      value: dashboardstats?.activeTribes ?? 0,
+      icon: Users,
+      color: '#8B5CF6',
+      action: () => navigation.navigate('Groups')
+    },
+    {
+      label: 'Monthly Savings',
+      value: `₹${dashboardstats?.monthlySavings ?? 0}`,
+      icon: IndianRupee,
+      color: '#10B981'
+    },
+    {
+      label: 'Total Subscriptions',
+      value: dashboardstats?.totalSubscriptions ?? 0,
+      icon: Tv,
+      color: '#F59E0B'
+    },
   ];
+
 
   return (
     <SafeAreaView style={styles.container}>

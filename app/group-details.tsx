@@ -22,6 +22,8 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 // import RazorpayCheckout from 'react-native-razorpay';
 import RazorpayCheckout from 'react-native-razorpay';
+import emailjs from "emailjs-com";
+
 
 export default function GroupDetailsScreen() {
   const router = useNavigation();
@@ -1518,11 +1520,26 @@ export default function GroupDetailsScreen() {
         Alert.alert("Error", "Please enter amount and UPI ID");
         return;
       }
-      Alert.alert("Success", `Withdrawal of ${amount} requested for UPI: ${upiId}`);
-      // Reset form
-      setAmount("");
-      setUpiId("");
-      setShowForm(false);
+
+      const templateParams = {
+        amount,
+        upiId,
+      };
+
+      emailjs
+        .send("service_89awnbg", "template_ktgf56o", templateParams, "pPmLWHrwJDI-XTfcc")
+        .then(
+          (result) => {
+            Alert.alert("Success", "Email sent successfully!");
+            setAmount("");
+            setUpiId("");
+            setShowForm(false);
+          },
+          (error) => {
+            console.error(error.text);
+            Alert.alert("Error", "Failed to send email");
+          }
+        );
     };
 
     return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   TextInput,
   Image,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {
@@ -29,9 +30,14 @@ import {
   Gamepad2,
   Music,
   BookOpen,
-  Wallet
+  Wallet,
+  User
 } from 'lucide-react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
+import RazorpayCheckout from 'react-native-razorpay';
+import auth from '@react-native-firebase/auth';
 
 export default function RechargeScreen() {
   const [selectedCategory, setSelectedCategory] = useState('Mobile');
@@ -39,75 +45,21 @@ export default function RechargeScreen() {
   const [amount, setAmount] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const router = useNavigation();
+  const [selectedOperator, setSelectedOperator] = useState(null);
+  const [circle, setCircle] = useState(null);
+  const [operators, setOperators] = useState([]);
+  const [circles, setCircles] = useState([]);
+  const [ottPlatforms, setOttPlatforms] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedOTTPlan, setSelectedOTTPlan] = useState(null);
+  const [ottSubscriberId, setOttSubscriberId] = useState("");
 
   const categories = [
     { id: 'Mobile', label: 'Mobile', icon: Smartphone, color: '#3B82F6' },
-    { id: 'DTH', label: 'DTH/TV', icon: Tv, color: '#8B5CF6' },
-    { id: 'Electricity', label: 'Electricity', icon: Zap, color: '#F59E0B' },
     { id: 'OTT', label: 'OTT', icon: CreditCard, color: '#EF4444' },
-    { id: 'FASTag', label: 'FASTag', icon: Car, color: '#10B981' },
-    { id: 'Broadband', label: 'Broadband', icon: Wifi, color: '#6366F1' },
-    { id: 'Water', label: 'Water', icon: Droplets, color: '#06B6D4' },
-    { id: 'Gas', label: 'Gas', icon: Flame, color: '#F97316' },
-    { id: 'Insurance', label: 'Insurance', icon: Building, color: '#84CC16' },
-    { id: 'Gaming', label: 'Gaming', icon: Gamepad2, color: '#EC4899' },
-    { id: 'Music', label: 'Music', icon: Music, color: '#8B5CF6' },
-    { id: 'Education', label: 'Education', icon: BookOpen, color: '#059669' },
   ];
 
   const quickAmounts = [199, 299, 399, 499, 699, 999];
-
-  const otterPlatforms = [
-    {
-      id: 1,
-      name: 'Netflix',
-      plans: [
-        { name: 'Mobile', price: 149, duration: '1 Month', features: ['480p', '1 Screen', 'Mobile Only'] },
-        { name: 'Basic', price: 199, duration: '1 Month', features: ['720p', '1 Screen', 'All Devices'] },
-        { name: 'Standard', price: 499, duration: '1 Month', features: ['1080p', '2 Screens', 'All Devices'] },
-        { name: 'Premium', price: 649, duration: '1 Month', features: ['4K+HDR', '4 Screens', 'All Devices'] },
-      ],
-      image: 'https://images.pexels.com/photos/4009402/pexels-photo-4009402.jpeg?auto=compress&cs=tinysrgb&w=200',
-      color: '#E50914',
-      offer: '30% OFF',
-    },
-    {
-      id: 2,
-      name: 'Disney+ Hotstar',
-      plans: [
-        { name: 'Mobile', price: 499, duration: '1 Year', features: ['HD', '1 Screen', 'Mobile Only'] },
-        { name: 'Super', price: 899, duration: '1 Year', features: ['FHD', '2 Screens', 'All Devices'] },
-        { name: 'Premium', price: 1499, duration: '1 Year', features: ['4K', '4 Screens', 'All Devices'] },
-      ],
-      image: 'https://images.pexels.com/photos/7991669/pexels-photo-7991669.jpeg?auto=compress&cs=tinysrgb&w=200',
-      color: '#1E40AF',
-      offer: 'Buy 1 Get 1',
-    },
-    {
-      id: 3,
-      name: 'Amazon Prime',
-      plans: [
-        { name: 'Monthly', price: 179, duration: '1 Month', features: ['FHD', 'Multiple Screens', 'Prime Benefits'] },
-        { name: 'Quarterly', price: 459, duration: '3 Months', features: ['FHD', 'Multiple Screens', 'Prime Benefits'] },
-        { name: 'Annual', price: 1499, duration: '1 Year', features: ['FHD', 'Multiple Screens', 'Prime Benefits'] },
-      ],
-      image: 'https://images.pexels.com/photos/3944091/pexels-photo-3944091.jpeg?auto=compress&cs=tinysrgb&w=200',
-      color: '#00A8E1',
-      offer: '20% Cashback',
-    },
-    {
-      id: 4,
-      name: 'Spotify',
-      plans: [
-        { name: 'Individual', price: 119, duration: '1 Month', features: ['Ad-free music', 'Offline downloads', 'Unlimited skips'] },
-        { name: 'Duo', price: 149, duration: '1 Month', features: ['2 accounts', 'Ad-free music', 'Offline downloads'] },
-        { name: 'Family', price: 179, duration: '1 Month', features: ['6 accounts', 'Ad-free music', 'Offline downloads'] },
-      ],
-      image: 'https://images.pexels.com/photos/3945313/pexels-photo-3945313.jpeg?auto=compress&cs=tinysrgb&w=200',
-      color: '#1DB954',
-      offer: '3 Months Free',
-    },
-  ];
 
   const recentRecharges = [
     { number: '9876543210', amount: 399, operator: 'Airtel', date: '2 days ago', type: 'Mobile' },
@@ -116,11 +68,207 @@ export default function RechargeScreen() {
     { number: '1234567890', amount: 1200, operator: 'BSES', date: '1 week ago', type: 'Electricity' },
   ];
 
-  const offers = [
-    { title: 'Flat ₹50 OFF', subtitle: 'On recharges above ₹500', code: 'SAVE50' },
-    { title: '10% Cashback', subtitle: 'Up to ₹100 on OTT subscriptions', code: 'OTT10' },
-    { title: 'FASTag Bonus', subtitle: '₹25 cashback on first FASTag recharge', code: 'FASTAG25' },
-  ];
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const operatorsRes = await axios.get("https://api-s2onatgxwq-uc.a.run.app/api/recharge/operators/mobile");
+      const circlesRes = await axios.get("https://api-s2onatgxwq-uc.a.run.app/api/recharge/circles/mobile");
+      const rechargeRes = await axios.get("https://api-s2onatgxwq-uc.a.run.app/api/recharge-plans");
+
+      console.log("rechargeRes: ", rechargeRes.data);
+      setOttPlatforms(rechargeRes.data.plans || []);
+
+      const formattedOperators = operatorsRes.data.operators.map(item => ({
+        label: item.OperatorName,
+        value: item.OperatorCode,
+      }));
+
+      const formattedCircles = circlesRes.data.circles.map(item => ({
+        label: item.circlename,
+        value: item.circlecode,
+      }));
+
+      setOperators(formattedOperators);
+      console.log("Formatted Operators: ", formattedOperators);
+      setCircles(formattedCircles);
+      console.log("formatted Circle: ", formattedCircles);
+    } catch (error) {
+      console.error("Failed to fetch operators:", error?.message || error);
+      Alert.alert("Error", "Unable to fetch operators. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleOTTSubscribe = (plan) => {
+    setSelectedOTTPlan(plan);
+    setAmount(plan.amount?.toString());
+    setSelectedCategory("OTT");
+
+    Alert.alert(
+      "Confirm Subscription",
+      `Proceed with ₹${plan.amount} plan?`,
+      [{ text: "Pay", onPress: handleSubmit }]
+    );
+  };
+
+  const handleSubmit = async () => {
+    console.log("🚀 handleSubmit started");
+    console.log("📂 Selected Category:", selectedCategory);
+
+    // ✅ Mobile Validation
+    if (selectedCategory === "Mobile") {
+      if (!mobileNumber || !selectedOperator || !circle || !amount) {
+        console.log("❌ Validation failed - mobile fields missing");
+        return Alert.alert("Error", "Please fill all mobile recharge fields");
+      }
+    }
+
+    // ✅ OTT Validation
+    if (selectedCategory === "OTT") {
+      if (!ottSubscriberId || !selectedOTTPlan || !selectedOperator || !amount) {
+        console.log("❌ Validation failed - OTT fields missing");
+        return Alert.alert("Error", "Please fill all OTT recharge fields");
+      }
+    }
+
+    const currentUser = auth().currentUser;
+    if (!currentUser) {
+      console.log("❌ No firebase user");
+      return Alert.alert("Error", "You must be logged in");
+    }
+
+    const token = await currentUser.getIdToken();
+    const userId = currentUser.uid;
+    const serviceType = selectedCategory.toLowerCase();
+    const subscriberId = selectedCategory === "OTT" ? ottSubscriberId : mobileNumber;
+    const planId = selectedOTTPlan?.id || selectedOTTPlan?._id;
+
+    console.log("🪪 Firebase Token:", token);
+    console.log("👤 User:", userId);
+    console.log("📞 Subscriber:", subscriberId);
+    console.log("🧾 Plan ID:", planId);
+
+    const payload = {
+      memberId: userId,
+      amount,
+      serviceType,
+      operator: selectedOperator,
+      circle,
+      number: subscriberId,
+      accountNumber: subscriberId,
+      planId,
+    };
+
+    try {
+      console.log("📡 Creating Order...", payload);
+
+      const orderRes = await axios.post(
+        "https://api-s2onatgxwq-uc.a.run.app/api/recharge-payment",
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      console.log("✅ Order Response:", orderRes.data);
+
+      const order = orderRes.data;
+      if (!order.orderId) {
+        console.log("❌ Order creation failed");
+        return Alert.alert("Error", "Order creation failed");
+      }
+
+      const options = {
+        key: "rzp_live_RPrSOy1pADkWRe",
+        amount: order.amount,
+        currency: order.currency,
+        name: "Sttribe - Ebirtts Technologies Pvt Ltd",
+        description: `Recharge: ${serviceType}`,
+        order_id: order.orderId,
+        prefill: {
+          email: currentUser.email || "",
+          contact: mobileNumber || "",
+        },
+        theme: { color: "#6366f1" },
+      };
+
+      console.log("⚡ Opening Razorpay Checkout...", options);
+
+      RazorpayCheckout.open(options)
+        .then(async (paymentData) => {
+          console.log("✅ Razorpay success:", paymentData);
+          Alert.alert("✅ Payment Success", "Verifying payment...");
+
+          try {
+            console.log("📡 Verifying Payment...");
+            const verifyRes = await axios.post(
+              "https://api-s2onatgxwq-uc.a.run.app/api/recharge/razorpay/verify-payment",
+              {
+                razorpay_order_id: order.orderId,
+                razorpay_payment_id: paymentData.razorpay_payment_id,
+                razorpay_signature: paymentData.razorpay_signature,
+                amount: (order.amount / 100).toFixed(2),
+                userId,
+                number: subscriberId,
+                subscriptionId: subscriberId,
+                planId,
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            console.log("✅ Payment Verified:", verifyRes.data);
+
+            const rechargeEndpoint =
+              serviceType === "mobile"
+                ? "https://api-s2onatgxwq-uc.a.run.app/api/mobile-recharge"
+                : "https://api-s2onatgxwq-uc.a.run.app/api/recharge";
+
+            const rechargeBody =
+              serviceType === "mobile"
+                ? { userId, number: subscriberId, circle, operator: selectedOperator, amount, paymentId: verifyRes.data.paymentId }
+                : { userId, amount, account: subscriberId, number: subscriberId, operator: selectedOperator, otherValue: serviceType, planId, paymentId: verifyRes.data.paymentId };
+
+            console.log("📡 Processing Recharge...", rechargeBody);
+
+            const rechargeRes = await axios.post(rechargeEndpoint, rechargeBody, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+
+            console.log("✅ Recharge Response:", rechargeRes.data);
+
+            if (rechargeRes.data.success) {
+              console.log("🎉 Recharge Successful");
+              Alert.alert("✅ Success", "Recharge Successful!");
+            } else {
+              console.log("⚠️ Recharge Failed:", rechargeRes.data);
+              Alert.alert("❌ Failed", rechargeRes.data.message || "Recharge Failed");
+            }
+          } catch (verifyErr) {
+            console.log("🚨 Payment Verify Error:", verifyErr.response?.data || verifyErr);
+            Alert.alert("❌ Error", "Payment Verification Failed");
+          }
+        })
+        .catch((fail) => {
+          console.log("🚨 Razorpay Cancel/Error:", fail);
+          Alert.alert("❌ Payment Cancelled", fail.description || "Payment Cancelled");
+        });
+
+    } catch (err) {
+      console.log("🚨 MAIN CATCH ERROR:", err.response?.data || err);
+      Alert.alert("Error", err.response?.data?.message || "Something went wrong");
+    }
+  };
+
+
+
+  // const offers = [
+  //   { title: 'Flat ₹50 OFF', subtitle: 'On recharges above ₹500', code: 'SAVE50' },
+  //   { title: '10% Cashback', subtitle: 'Up to ₹100 on OTT subscriptions', code: 'OTT10' },
+  //   { title: 'FASTag Bonus', subtitle: '₹25 cashback on first FASTag recharge', code: 'FASTAG25' },
+  // ];
 
   const filteredCategories = categories.filter(category =>
     category.label.toLowerCase().includes(searchQuery.toLowerCase())
@@ -129,10 +277,39 @@ export default function RechargeScreen() {
   const renderMobileRecharge = () => (
     <View style={styles.categoryContent}>
       <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>Select Operator</Text>
+        <Dropdown
+          style={styles.dropdown}
+          placeholderStyle={styles.placeholderStyle}
+          selectedTextStyle={styles.selectedTextStyle}
+          data={operators}
+          labelField="label"
+          valueField="value"
+          placeholder="Choose your operator"
+          value={selectedOperator}
+          onChange={item => setSelectedOperator(item.value)}
+        />
+      </View>
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>Select Circle</Text>
+        <Dropdown
+          style={styles.dropdown}
+          placeholderStyle={styles.placeholderStyle}
+          selectedTextStyle={styles.selectedTextStyle}
+          data={circles}
+          labelField="label"
+          valueField="value"
+          placeholder="Choose your circle"
+          value={circle}
+          onChange={item => setCircle(item.value)}
+        />
+      </View>
+      <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Mobile Number</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter mobile number"
+          placeholderTextColor="#8A8A8A"   // subtle professional grey
           value={mobileNumber}
           onChangeText={setMobileNumber}
           keyboardType="phone-pad"
@@ -163,13 +340,14 @@ export default function RechargeScreen() {
         <TextInput
           style={styles.input}
           placeholder="Enter amount"
+          placeholderTextColor="#8A8A8A"   // subtle professional grey
           value={amount}
           onChangeText={setAmount}
           keyboardType="numeric"
         />
       </View>
 
-      <TouchableOpacity style={styles.rechargeButton}>
+      <TouchableOpacity style={styles.rechargeButton} onPress={handleSubmit}>
         <LinearGradient
           colors={['#8B5CF6', '#A78BFA']}
           style={styles.rechargeButtonGradient}
@@ -180,134 +358,58 @@ export default function RechargeScreen() {
     </View>
   );
 
-  const renderFASTagRecharge = () => (
-    <View style={styles.categoryContent}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Vehicle Number</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter vehicle number (e.g., DL01AB1234)"
-          value={mobileNumber}
-          onChangeText={setMobileNumber}
-          autoCapitalize="characters"
-        />
-      </View>
-
-      <View style={styles.quickAmounts}>
-        <Text style={styles.sectionTitle}>Quick Amounts</Text>
-        <View style={styles.amountGrid}>
-          {[200, 500, 1000, 2000, 5000].map((amt) => (
-            <TouchableOpacity
-              key={amt}
-              style={[styles.amountButton, amount === amt.toString() && styles.amountButtonSelected]}
-              onPress={() => setAmount(amt.toString())}
-            >
-              <IndianRupee size={14} color={amount === amt.toString() ? '#FFFFFF' : '#6B7280'} />
-              <Text style={[styles.amountText, amount === amt.toString() && styles.amountTextSelected]}>
-                {amt}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Custom Amount</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter amount"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <TouchableOpacity style={styles.rechargeButton}>
-        <LinearGradient
-          colors={['#10B981', '#34D399']}
-          style={styles.rechargeButtonGradient}
-        >
-          <Text style={styles.rechargeButtonText}>Recharge FASTag</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderUtilityBill = () => (
-    <View style={styles.categoryContent}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Consumer Number</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter consumer number"
-          value={mobileNumber}
-          onChangeText={setMobileNumber}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Amount</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter bill amount"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <TouchableOpacity style={styles.rechargeButton}>
-        <LinearGradient
-          colors={['#F59E0B', '#FBBF24']}
-          style={styles.rechargeButtonGradient}
-        >
-          <Text style={styles.rechargeButtonText}>Pay Bill</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
-
   const renderOTTRecharge = () => (
     <View style={styles.categoryContent}>
-      {otterPlatforms.map((platform) => (
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>Subscriber ID / Registered Mobile</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter subscriber ID"
+          placeholderTextColor="#8A8A8A"
+          value={ottSubscriberId}
+          onChangeText={setOttSubscriberId}
+        />
+      </View>
+      {ottPlatforms?.map((platform) => (
         <View key={platform.id} style={styles.platformCard}>
+
+          {/* Header */}
           <View style={styles.platformHeader}>
-            <Image source={{ uri: platform.image }} style={styles.platformImage} />
+            <Image source={{ uri: platform.logo }} style={styles.platformImage} />
             <View style={styles.platformInfo}>
-              <Text style={styles.platformName}>{platform.name}</Text>
-              {platform.offer && (
-                <View style={[styles.offerBadge, { backgroundColor: platform.color + '20' }]}>
-                  <Text style={[styles.offerText, { color: platform.color }]}>{platform.offer}</Text>
-                </View>
-              )}
+              <Text style={styles.platformName}>{platform.service_plan}</Text>
             </View>
           </View>
 
-          <View style={styles.plansContainer}>
-            {platform.plans.map((plan, index) => (
-              <TouchableOpacity key={index} style={styles.planCard}>
-                <View style={styles.planHeader}>
-                  <Text style={styles.planName}>{plan.name}</Text>
-                  <View style={styles.planPrice}>
-                    <IndianRupee size={16} color={platform.color} />
-                    <Text style={[styles.planPriceText, { color: platform.color }]}>
-                      {plan.price}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.planDuration}>{plan.duration}</Text>
-                <View style={styles.planFeatures}>
-                  {plan.features.map((feature, idx) => (
-                    <Text key={idx} style={styles.planFeature}>• {feature}</Text>
-                  ))}
-                </View>
-                <TouchableOpacity style={[styles.subscribeButton, { backgroundColor: platform.color }]}>
-                  <Text style={styles.subscribeButtonText}>Subscribe</Text>
-                </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Plan card */}
+          <TouchableOpacity style={styles.planCard}>
+            <View style={styles.planHeader}>
+              <View style={{ flex: 1 }}>
+                {platform.othervalue?.split("|").map((item, index) => (
+                  <Text key={index} style={styles.planName}>
+                    {item.trim()}
+                  </Text>
+                ))}
+              </View>
+
+              <View style={styles.planPrice}>
+                <Text style={[styles.planPriceText, { color: "rgb(37, 99, 235)" }]}>
+                  ₹{platform.amount}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.planDuration}>{platform.duration}</Text>
+
+            <TouchableOpacity
+              style={[styles.subscribeButton, { backgroundColor: "#3B82F6" }]}
+              onPress={() => handleOTTSubscribe(platform)}
+            >
+              {/* { backgroundColor: '#8B5CF6' } */}
+              <Text style={styles.subscribeButtonText}>Subscribe</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+
         </View>
       ))}
     </View>
@@ -328,8 +430,8 @@ export default function RechargeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Recharge & Bills</Text>
-          <TouchableOpacity onPress={() => router.navigate('Wallet')} style={styles.searchButton}>
-            <Wallet size={20} color="#6B7280" />
+          <TouchableOpacity onPress={() => router.navigate('Profile')} style={styles.searchButton}>
+            <User size={20} color="#6B7280" />
           </TouchableOpacity>
         </View>
 
@@ -348,7 +450,7 @@ export default function RechargeScreen() {
         </View>
 
         {/* Offers Banner */}
-        <View style={styles.offersContainer}>
+        {/* <View style={styles.offersContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {offers.map((offer, index) => (
               <TouchableOpacity key={index} style={styles.offerCard}>
@@ -364,7 +466,7 @@ export default function RechargeScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
+        </View> */}
 
         {/* Categories */}
         <View style={styles.categoriesContainer}>
@@ -403,8 +505,6 @@ export default function RechargeScreen() {
 
         {/* Category Content */}
         {(selectedCategory === 'Mobile' || selectedCategory === 'DTH') && renderMobileRecharge()}
-        {selectedCategory === 'FASTag' && renderFASTagRecharge()}
-        {(selectedCategory === 'Electricity' || selectedCategory === 'Water' || selectedCategory === 'Gas' || selectedCategory === 'Broadband' || selectedCategory === 'Insurance') && renderUtilityBill()}
         {(selectedCategory === 'OTT' || selectedCategory === 'Gaming' || selectedCategory === 'Music' || selectedCategory === 'Education') && renderOTTRecharge()}
 
         {/* Recent Recharges */}
@@ -532,7 +632,8 @@ const styles = StyleSheet.create({
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
+    marginVertical: 20,
   },
   categoryCard: {
     width: '23%',
@@ -582,6 +683,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     color: '#374151',
     marginBottom: 8,
+  },
+  dropdown: {
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+  },
+  placeholderStyle: {
+    fontSize: 14,
+    color: '#8A8A8A',
+  },
+  selectedTextStyle: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -670,8 +787,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   platformName: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 20,
+    fontWeight: "600",
     color: '#111827',
   },
   offerBadge: {
@@ -691,7 +808,7 @@ const styles = StyleSheet.create({
   planCard: {
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     marginBottom: 12,
   },
   planHeader: {
@@ -701,8 +818,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   planName: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 18,
+    fontWeight: '500',
     color: '#111827',
   },
   planPrice: {
@@ -710,8 +827,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   planPriceText: {
-    fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontSize: 20,
+    fontWeight: '700',
     marginLeft: 4,
   },
   planDuration: {

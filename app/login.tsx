@@ -4,6 +4,7 @@ import { GoogleSignin, GoogleSigninButton, statusCodes } from "@react-native-goo
 import auth from "@react-native-firebase/auth";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import axios from "axios";
 
 export default function LoginScreen() {
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -14,79 +15,93 @@ export default function LoginScreen() {
         GoogleSignin.configure({
             webClientId: "699272670821-e2m6cj4n75e8dc5a3t0ifvgc52hpecpf.apps.googleusercontent.com",
             offlineAccess: true,
+            // forceCodeForRefreshToken: true, // Force consent screen
+            hostedDomain: '', // Optional
+            accountName: '', // Optional
         });
     }, []);
 
     const handleGoogleLogin = async () => {
         if (loading) return;
-
         setLoading(true);
+
         try {
             console.log("🔄 Starting Google login process...");
 
-            // Check if Play Services are available
+            // 1️⃣ Ensure Google Play services are available
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
             console.log("✅ Play services available");
 
-            // Sign in with Google
+            // 2️⃣ Start Google Sign-In
             const signInResult = await GoogleSignin.signIn();
-            console.log("✅ Google signin successful");
+            console.log("✅ Google Sign-In successful");
 
-            // CORRECTED: Access idToken from the data property
+            // 3️⃣ Get ID token from Google
             const idToken = signInResult.data?.idToken;
-
             if (!idToken) {
-                console.error("❌ No ID token received. Full response:", signInResult);
-                Alert.alert("Login Error", "No ID token received from Google. Please check your configuration.");
-                setLoading(false);
+                console.error("❌ No ID token received:", signInResult);
+                Alert.alert("Login Error", "No ID token received from Google. Please try again.");
                 return;
             }
 
-            console.log("✅ Google ID token received");
-
-            // Create a Firebase credential with the token
-            const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-
-            // Sign in with credential
+            // 4️⃣ Sign in with Firebase using Google credentials
             console.log("🔄 Signing in with Firebase...");
+            const googleCredential = auth.GoogleAuthProvider.credential(idToken);
             const userCredential = await auth().signInWithCredential(googleCredential);
             const user = userCredential.user;
 
-            console.log("✅ Firebase signin successful, getting ID token...");
-            const token = await user.getIdToken();
+            // 5️⃣ Get Firebase token for backend authorization
+            const firebaseToken = await user.getIdToken(true);
+            console.log("✅ Firebase token obtained");
 
-            console.log("✅ Firebase User:", user.email);
-            console.log("🔥 Firebase Token received:", token ? "Yes" : "No");
+            // 6️⃣ Sync with your backend
+            try {
+                console.log("🔄 Syncing user with backend...");
+                await axios.post(
+                    "https://api-s2onatgxwq-uc.a.run.app/api/auth/sync",
+                    {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName,
+                        photoURL: user.photoURL,
+                    },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${firebaseToken}`,
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+                console.log("✅ User synced successfully with backend");
+            } catch (syncError: any) {
+                console.error("❌ Backend sync failed:", syncError.response?.data || syncError.message);
+                Alert.alert("Sync Error", "Failed to sync user with backend.");
+            }
 
+            // 7️⃣ Save user to local state or Redux if needed
             setUserInfo(user);
 
-            // Wait a moment to ensure auth state is fully updated
-            await new Promise(resolve => setTimeout(resolve, 500));
 
-            console.log("🔄 Navigating to Tabs...");
-
-            // Use navigate instead of reset for more reliable navigation
+            console.log("✅ Profile complete. Navigating to Tabs...");
             navigation.navigate("Tabs");
 
-            console.log("✅ Navigation triggered");
-
         } catch (error: any) {
-            console.error("❌ Google login error", error);
-            setLoading(false);
-
+            console.error("❌ Google login error:", error);
             if (error.code === statusCodes.SIGN_IN_CANCELLED) {
                 Alert.alert("Login Cancelled", "You cancelled the login process.");
             } else if (error.code === statusCodes.IN_PROGRESS) {
                 Alert.alert("Login in Progress", "A login operation is already in progress.");
             } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-                Alert.alert("Play Services Not Available", "Google Play Services are not available.");
+                Alert.alert("Play Services Error", "Google Play Services are not available.");
             } else {
-                Alert.alert("Login Error", error.message || "An unknown error occurred during login.");
+                Alert.alert("Login Error", error.message || "Something went wrong during login.");
             }
         } finally {
             setLoading(false);
         }
     };
+
+
 
     const handleTestNavigation = () => {
         console.log("🧪 Test navigation to Tabs");

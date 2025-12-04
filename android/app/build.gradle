@@ -84,8 +84,8 @@ android {
         applicationId "com.sttribe"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 5
+        versionName "1.0.0.2"
         // Add missing configuration for push notifications
         missingDimensionStrategy 'react-native-camera', 'general'
     }

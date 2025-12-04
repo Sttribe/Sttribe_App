@@ -1515,32 +1515,53 @@ export default function GroupDetailsScreen() {
       }
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
       if (!amount || !upiId) {
         Alert.alert("Error", "Please enter amount and UPI ID");
         return;
       }
 
-      const templateParams = {
-        amount,
-        upiId,
-      };
+      try {
+        const res = await fetch("https://api-s2onatgxwq-uc.a.run.app/api/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: "support@sttribe.com",
+            subject: "Settlement Request",
+            text: `Amount: ₹${amount}\nUPI ID: ${upiId}`,
+          })
+        });
 
-      emailjs
-        .send("service_89awnbg", "template_ktgf56o", templateParams, "pPmLWHrwJDI-XTfcc")
-        .then(
-          (result) => {
-            Alert.alert("Success", "Email sent successfully!");
-            setAmount("");
-            setUpiId("");
-            setShowForm(false);
-          },
-          (error) => {
-            console.error(error.text);
-            Alert.alert("Error", "Failed to send email");
-          }
+        const raw = await res.text();
+        console.log("EMAIL RESPONSE:", raw);
+
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          throw new Error("Server not returning JSON");
+        }
+
+        if (!data.success) {
+          throw new Error("Email failed");
+        }
+
+        Alert.alert("Success", "Email sent");
+        setAmount("");
+        setUpiId("");
+        setShowForm(false);
+
+      } catch (err) {
+        console.error("EMAIL ERROR:", err.message);
+
+        Alert.alert(
+          "Error",
+          "Backend email API not reachable or invalid response"
         );
+      }
     };
+
+
 
     return (
       <View style={{ flex: 1, padding: 16, backgroundColor: "#F9FAFB" }}>

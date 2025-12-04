@@ -57,10 +57,10 @@ export default function ProfileScreen() {
     }, []));
 
   const stats = [
-    { label: 'Monthly Savings', value: `₹${userStats?.monthlySavings}`, icon: IndianRupee, color: '#10B981' },
-    { label: 'Active Tribes', value: userStats?.activeTribes, icon: Users, color: '#8B5CF6' },
-    { label: 'Subscriptions', value: userStats?.totalSubscriptions, icon: Gift, color: '#F59E0B' },
-    { label: 'Monthly Spend', value: `₹${userStats?.monthlySpend}`, icon: IndianRupee, color: '#10B981' },
+    { label: 'Monthly Savings', value: `₹${userStats?.monthlySavings ?? 0}`, icon: IndianRupee, color: '#10B981' },
+    { label: 'Active Tribes', value: userStats?.activeTribes ?? 0, icon: Users, color: '#8B5CF6' },
+    { label: 'Subscriptions', value: userStats?.totalSubscriptions ?? 0, icon: Gift, color: '#F59E0B' },
+    { label: 'Monthly Spend', value: `₹${userStats?.monthlySpend ?? 0}`, icon: IndianRupee, color: '#10B981' },
   ];
 
   const menuItems = [
@@ -122,9 +122,8 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-
+      "Confirm Logout",
+      "Are you sure you want to log out?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -132,28 +131,41 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // Sign out from Firebase
               await auth().signOut();
 
-              // Clear Google Sign-In session
-              await GoogleSignin.signOut();
-
-              // Revoke access to force account chooser on next login
+              // if (GoogleSignin && typeof GoogleSignin.isSignedIn === "function") {
+              //   const isSignedIn = await GoogleSignin.isSignedIn();
+              //   if (isSignedIn) {
+              //     try {
               await GoogleSignin.revokeAccess();
+              await GoogleSignin.signOut();
+              //     } catch (googleErr) {
+                    console.warn("Google sign-out revokeAccess:");
+              //     }
+              //   }
+              // } else {
+              //   console.warn("⚠️ GoogleSignin not initialized properly");
+              // }
 
-              // Navigate back to login screen
-              router.navigate("Login");
+              router.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
 
-              console.log("✅ User fully logged out and access revoked");
-            } catch (err: any) {
-              console.error("❌ Logout error:", err);
-              Alert.alert("Error", err.message || "Something went wrong during logout.");
+              Alert.alert("Logged Out", "You’ve been logged out successfully.");
+            } catch (error: any) {
+              console.error("Logout Error:", error);
+              Alert.alert(
+                "Logout Failed",
+                error?.message || "Something went wrong. Please try again."
+              );
             }
           },
         },
       ]
     );
   };
+
 
 
   return (

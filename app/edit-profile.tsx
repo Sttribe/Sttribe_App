@@ -120,7 +120,9 @@ export default function EditProfile() {
                             </View>
                             <View style={styles.profileInfoItem}>
                                 <Phone size={18} color="#fff" />
-                                <Text style={styles.profileInfoText}>{phoneNumber}</Text>
+                                <Text style={styles.profileInfoText}>
+                                    {phoneNumber ? phoneNumber : 'Update Phone Number'}
+                                </Text>
                             </View>
                         </View>
                     </LinearGradient>
@@ -139,6 +141,7 @@ export default function EditProfile() {
                                 placeholder="First Name"
                                 value={firstName}
                                 onChangeText={setFirstName}
+                                placeholderTextColor="#9CA3AF"
                             />
                         </View>
                     </View>
@@ -153,6 +156,7 @@ export default function EditProfile() {
                                 value={lastName}
                                 onChangeText={setLastName}
                                 underlineColorAndroid="transparent"
+                                placeholderTextColor="#9CA3AF"
                             />
                         </View>
                     </View>
@@ -171,6 +175,7 @@ export default function EditProfile() {
                                 value={phoneNumber}
                                 onChangeText={setPhoneNumber}
                                 keyboardType="phone-pad"
+                                placeholderTextColor="#9CA3AF"
                             />
                         </View>
                     </View>

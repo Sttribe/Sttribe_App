@@ -2,16 +2,18 @@
  * App.tsx
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Alert, Platform, StatusBar, StyleSheet, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 // import { NewAppScreen } from "@react-native-new-app-screen";
 import AppNavigator from "./app/navigations/AppNavigator";
 import messaging, { AuthorizationStatus } from "@react-native-firebase/messaging";
 import "@react-native-firebase/auth";
+import analytics from '@react-native-firebase/analytics';
 import { storeApiKey } from "./app/openaiService";
 import { OPENAI_API_KEY } from "@env";
 import SplashScreen from "react-native-splash-screen";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 
 // ✅ Background handler must be outside the component
 // messaging().setBackgroundMessageHandler(async remoteMessage => {
@@ -21,11 +23,20 @@ import SplashScreen from "react-native-splash-screen";
 function App() {
   const isDarkMode = useColorScheme() === "dark";
   const API_KEY = OPENAI_API_KEY;
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
 
     if (Platform.OS === 'android') SplashScreen.hide();
 
+    const logEvent = async () => {
+      await analytics().logEvent('app_open', {
+        screen: 'Home',
+        purpose: 'Test event',
+      });
+    };
+    logEvent();
 
     requestUserPermission();
     getFCMToken();
@@ -90,9 +101,29 @@ function App() {
   };
 
   return (
-    <SafeAreaProvider >
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <AppNavigator />
+    <SafeAreaProvider>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={() => {
+          routeNameRef.current = navigationRef.current?.getCurrentRoute()?.name;
+        }}
+        onStateChange={async () => {
+          const previousRouteName = routeNameRef.current;
+          const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
+
+          if (previousRouteName !== currentRouteName && currentRouteName) {
+            await analytics().logScreenView({
+              screen_name: currentRouteName,
+              screen_class: currentRouteName,
+            });
+          }
+
+          routeNameRef.current = currentRouteName;
+        }}
+      >
+        <AppNavigator />
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

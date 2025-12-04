@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
+// import { NavigationContainer } from "@react-navigation/native";
 import { Home, Users, Search, CreditCard, User, Wallet } from "lucide-react-native";
 import { OPENAI_API_KEY } from "@env";
 
@@ -38,6 +38,9 @@ import OnboardingScreen from "../OnboardingScreen.jsx";
 import { checkFirstLaunch, setFirstLaunchCompleted } from "./firstLaunch.js";
 import { storeApiKey } from "../openaiService.ts";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CompleteProfile from "../CompleteProfile.tsx";
+import RechargeScreen from "../(tabs)/recharge.tsx";
+import ProfileScreen from "../(tabs)/profile.tsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -92,6 +95,14 @@ function TabsNavigator() {
           tabBarIcon: ({ size, color }) => <Search size={size} color={color} />,
         }}
       />
+      {/* <Tab.Screen
+        name="Reacherge"
+        component={RechargeScreen}
+        options={{
+          title: "Reacherge",
+          tabBarIcon: ({ size, color }) => <CreditCard size={size} color={color} />,
+        }}
+      /> */}
       <Tab.Screen
         name="Wallet"
         component={WalletScreen}
@@ -214,38 +225,38 @@ export default function AppNavigator() {
   });
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{ headerShown: false }}
-        initialRouteName={initialRoute}
-      >
-        <Stack.Screen name="Onboarding">
-          {(props) => (
-            <OnboardingScreen {...props} onComplete={handleOnboardingComplete} />
-          )}
-        </Stack.Screen>
-        <Stack.Screen name="Login" component={Login} />
-        {/* main tabs */}
-        <Stack.Screen name="Tabs" component={TabsNavigator} />
-        {/* extra stack screens */}
-        <Stack.Screen name="Chat" component={ChatScreen} />
-        <Stack.Screen name="CreateGroup" component={CreateGroup} />
-        <Stack.Screen name="EditProfile" component={EditProfile} />
-        <Stack.Screen name="GroupDetails" component={GroupDetails} />
-        <Stack.Screen name="Help" component={Help} />
-        <Stack.Screen name="MovieDetails" component={MovieDetails} />
-        <Stack.Screen name="Notifications" component={Notifications} />
-        <Stack.Screen name="PaymentGateway" component={PaymentGateway} />
-        <Stack.Screen name="PaymentMethods" component={PaymentMethods} />
-        <Stack.Screen name="Privacy" component={Privacy} />
-        <Stack.Screen name="SubscriptionPurchase" component={SubscriptionPurchase} />
-        <Stack.Screen name="Transactions" component={Transactions} />
-        <Stack.Screen name="FreeOttStream" component={FreeOttStream} />
-        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-        <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
-        <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
-        <Stack.Screen name="FAQs" component={FAQScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={initialRoute}
+    >
+      <Stack.Screen name="Onboarding">
+        {(props) => (
+          <OnboardingScreen {...props} onComplete={handleOnboardingComplete} />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="Login" component={Login} />
+      {/* main tabs */}
+      <Stack.Screen name="Tabs" component={TabsNavigator} />
+      {/* extra stack screens */}
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="CreateGroup" component={CreateGroup} />
+      <Stack.Screen name="EditProfile" component={EditProfile} />
+      <Stack.Screen name="GroupDetails" component={GroupDetails} />
+      <Stack.Screen name="Help" component={Help} />
+      <Stack.Screen name="MovieDetails" component={MovieDetails} />
+      <Stack.Screen name="Notifications" component={Notifications} />
+      <Stack.Screen name="PaymentGateway" component={PaymentGateway} />
+      <Stack.Screen name="PaymentMethods" component={PaymentMethods} />
+      <Stack.Screen name="Privacy" component={Privacy} />
+      <Stack.Screen name="SubscriptionPurchase" component={SubscriptionPurchase} />
+      <Stack.Screen name="Transactions" component={Transactions} />
+      <Stack.Screen name="FreeOttStream" component={FreeOttStream} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
+      <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
+      <Stack.Screen name="CompleteProfile" component={CompleteProfile} />
+      <Stack.Screen name="FAQs" component={FAQScreen} />
+    </Stack.Navigator>
   );
 }

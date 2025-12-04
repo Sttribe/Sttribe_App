@@ -21,7 +21,8 @@ import {
   Star,
   CreditCard,
   Tv,
-  IndianRupee
+  IndianRupee,
+  User
 } from 'lucide-react-native';
 import axios from 'axios';
 // import { getAuth } from 'firebase/auth';
@@ -160,9 +161,9 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Welcome!</Text>
             <Text style={styles.username}>{profile.firstName}</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.notificationBtn}>
-            <Bell size={24} color="#6B7280" />
-            <View style={styles.notificationBadge} />
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.notificationBtn}>
+            <User size={24} color="#6B7280" />
+            {/* <View style={styles.notificationBadge} /> */}
           </TouchableOpacity>
         </View>
 
